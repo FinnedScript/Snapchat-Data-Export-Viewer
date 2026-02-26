@@ -35,20 +35,41 @@ const activityData = [
 ];
 
 const mockChats = [
-  { id: 1, user: "Alex D.", msg: "Sent a Snap", type: "snap", time: "2m ago", unread: true },
-  { id: 2, user: "Sarah M.", msg: "Haha yeah exactly", type: "text", time: "1h ago", unread: false },
-  { id: 3, user: "Group: Weekend", msg: "Audio Message (0:14)", type: "audio", time: "3h ago", unread: false },
-  { id: 4, user: "Mike T.", msg: "Saved a photo", type: "saved", time: "Yesterday", unread: false },
-  { id: 5, user: "Emma W.", msg: "Sent a Snap", type: "snap", time: "Yesterday", unread: false },
+  { 
+    id: 1, 
+    user: "Alex D.", 
+    messages: [
+      { id: "m1", type: "text", content: "Did you see that?", time: "2m ago", date: "Feb 26, 2026" },
+      { id: "m2", type: "snap", content: "Snap sent (unsaved)", time: "1m ago", date: "Feb 26, 2026", unsaved: true }
+    ],
+    time: "2m ago", unread: true 
+  },
+  { 
+    id: 2, 
+    user: "Sarah M.", 
+    messages: [
+      { id: "m3", type: "text", content: "Haha yeah exactly", time: "1h ago", date: "Feb 25, 2026" },
+      { id: "m4", type: "image", content: "memory_01.jpg", chatSource: "Sarah M.", time: "1h ago", date: "Feb 25, 2026" }
+    ],
+    time: "1h ago", unread: false 
+  },
+  { 
+    id: 3, 
+    user: "Group: Weekend", 
+    messages: [
+      { id: "m5", type: "audio", content: "Audio Message (0:14)", chatSource: "Group: Weekend", time: "3h ago", date: "Feb 25, 2026" }
+    ],
+    time: "3h ago", unread: false 
+  },
 ];
 
 const mockMedia = [
-  { id: 1, type: "image", date: "Oct 12, 2023", location: "New York, NY" },
-  { id: 2, type: "video", date: "Sep 28, 2023", location: "Los Angeles, CA" },
-  { id: 3, type: "image", date: "Sep 15, 2023", location: "Chicago, IL" },
-  { id: 4, type: "image", date: "Aug 02, 2023", location: "Miami, FL" },
-  { id: 5, type: "video", date: "Jul 21, 2023", location: "Austin, TX" },
-  { id: 6, type: "image", date: "Jul 04, 2023", location: "Denver, CO" },
+  { id: 1, type: "image", date: "Oct 12, 2023", location: "New York, NY", fileName: "memory_2023_10_12.jpg", chatSource: "Sarah M." },
+  { id: 2, type: "video", date: "Sep 28, 2023", location: "Los Angeles, CA", fileName: "video_2023_09_28.mp4", chatSource: "Alex D." },
+  { id: 3, type: "audio", date: "Sep 15, 2023", location: "Chicago, IL", fileName: "voice_note_01.mp4", chatSource: "Group: Weekend" },
+  { id: 4, type: "image", date: "Aug 02, 2023", location: "Miami, FL", fileName: "beach_day.jpg", chatSource: "Self" },
+  { id: 5, type: "video", date: "Jul 21, 2023", location: "Austin, TX", fileName: "concert.mp4", chatSource: "Mike T." },
+  { id: 6, type: "image", date: "Jul 04, 2023", location: "Denver, CO", fileName: "fireworks.jpg", chatSource: "Emma W." },
 ];
 
 const containerVariants = {
@@ -68,6 +89,12 @@ const itemVariants = {
 
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState("overview");
+  const [selectedChat, setSelectedChat] = useState<typeof mockChats[0] | null>(null);
+
+  const handleDownload = (fileName: string) => {
+    // Mock download
+    console.log(`Downloading ${fileName}...`);
+  };
 
   return (
     <div className="min-h-screen p-6 md:p-12 max-w-7xl mx-auto">
@@ -184,12 +211,8 @@ export default function Dashboard() {
         </TabsContent>
 
         <TabsContent value="chats">
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="grid grid-cols-1 lg:grid-cols-3 gap-6"
-          >
-            <div className="lg:col-span-2 space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="space-y-4">
               <h3 className="text-2xl font-bold mb-6">Recent Conversations</h3>
               {mockChats.map((chat, i) => (
                 <motion.div 
@@ -197,58 +220,98 @@ export default function Dashboard() {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: i * 0.1 }}
                   key={chat.id}
-                  className="glass-panel p-4 rounded-2xl flex items-center gap-4 hover:bg-white/10 transition-colors cursor-pointer"
+                  onClick={() => setSelectedChat(chat)}
+                  className={`glass-panel p-4 rounded-2xl flex items-center gap-4 hover:bg-white/10 transition-colors cursor-pointer ${selectedChat?.id === chat.id ? 'bg-white/10 ring-1 ring-primary/50' : ''}`}
                 >
                   <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary/40 to-accent/40 flex items-center justify-center text-lg font-bold">
                     {chat.user.charAt(0)}
                   </div>
                   <div className="flex-1">
                     <h4 className={`font-semibold ${chat.unread ? 'text-white' : 'text-white/80'}`}>{chat.user}</h4>
-                    <p className={`text-sm ${
-                      chat.type === 'snap' ? 'text-primary' : 
-                      chat.type === 'audio' ? 'text-accent' : 'text-muted-foreground'
-                    }`}>
-                      {chat.type === 'snap' && <span className="inline-block w-2 h-2 bg-primary rounded-sm mr-2 animate-pulse" />}
-                      {chat.type === 'audio' && <Play className="inline-block w-3 h-3 mr-1" />}
-                      {chat.msg}
+                    <p className="text-sm text-muted-foreground truncate">
+                      {chat.messages[chat.messages.length - 1].content}
                     </p>
                   </div>
                   <div className="text-xs text-muted-foreground flex flex-col items-end">
                     <span>{chat.time}</span>
-                    <ChevronRight className="w-4 h-4 mt-1 opacity-50" />
                   </div>
                 </motion.div>
               ))}
             </div>
             
-            <div className="space-y-6">
-              <Card className="glass-panel border-white/5 bg-white/5">
-                <CardHeader>
-                  <CardTitle className="text-lg">Chat Stats</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div>
-                    <div className="flex justify-between text-sm mb-2">
-                      <span className="text-muted-foreground">Snaps Sent</span>
-                      <span className="font-bold">{statsData.snapsSent}</span>
-                    </div>
-                    <div className="w-full h-2 bg-white/5 rounded-full overflow-hidden">
-                      <div className="h-full bg-primary rounded-full" style={{ width: '65%' }} />
+            <div className="lg:col-span-2">
+              {selectedChat ? (
+                <div className="glass-panel rounded-3xl overflow-hidden flex flex-col h-[600px]">
+                  <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center font-bold text-primary">
+                        {selectedChat.user.charAt(0)}
+                      </div>
+                      <h4 className="font-bold">{selectedChat.user}</h4>
                     </div>
                   </div>
-                  <div>
-                    <div className="flex justify-between text-sm mb-2">
-                      <span className="text-muted-foreground">Snaps Received</span>
-                      <span className="font-bold">{statsData.snapsReceived}</span>
-                    </div>
-                    <div className="w-full h-2 bg-white/5 rounded-full overflow-hidden">
-                      <div className="h-full bg-accent rounded-full" style={{ width: '85%' }} />
-                    </div>
+                  <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-black/20">
+                    {selectedChat.messages.map((msg, idx) => {
+                      const showDate = idx === 0 || selectedChat.messages[idx - 1].date !== msg.date;
+                      return (
+                        <div key={msg.id} className="space-y-4">
+                          {showDate && (
+                            <div className="flex justify-center">
+                              <span className="text-[10px] uppercase tracking-widest text-muted-foreground bg-white/5 px-3 py-1 rounded-full">
+                                {msg.date}
+                              </span>
+                            </div>
+                          )}
+                          <div className={`flex flex-col ${idx % 2 === 0 ? 'items-start' : 'items-end'}`}>
+                            <div className={`max-w-[80%] rounded-2xl p-4 ${
+                              msg.unsaved ? 'border border-dashed border-white/20 bg-transparent opacity-60' :
+                              idx % 2 === 0 ? 'bg-white/10' : 'bg-primary/20 text-white'
+                            }`}>
+                              {msg.type === 'snap' ? (
+                                <div className="flex items-center gap-3">
+                                  <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">
+                                    <ImageIcon className="w-4 h-4 text-primary" />
+                                  </div>
+                                  <div className="text-sm italic">Unsaved Snap</div>
+                                </div>
+                              ) : msg.type === 'audio' ? (
+                                <div className="space-y-2">
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center">
+                                      <Play className="w-4 h-4 text-accent" />
+                                    </div>
+                                    <div className="w-32 h-1 bg-white/20 rounded-full overflow-hidden">
+                                      <div className="h-full bg-accent w-1/2" />
+                                    </div>
+                                    <span className="text-xs">0:14</span>
+                                  </div>
+                                </div>
+                              ) : msg.type === 'image' ? (
+                                <div className="space-y-3">
+                                  <div className="aspect-square w-48 bg-black/40 rounded-lg flex items-center justify-center">
+                                    <ImageIcon className="w-8 h-8 text-white/20" />
+                                  </div>
+                                  <p className="text-xs opacity-60 italic">{msg.content}</p>
+                                </div>
+                              ) : (
+                                <p className="text-sm">{msg.content}</p>
+                              )}
+                            </div>
+                            <span className="text-[10px] text-muted-foreground mt-1 px-1">{msg.time}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+              ) : (
+                <div className="glass-panel rounded-3xl h-[600px] flex flex-col items-center justify-center text-muted-foreground p-12 text-center">
+                  <MessageSquare className="w-16 h-16 mb-4 opacity-20" />
+                  <p>Select a conversation to view chat history and saved media.</p>
+                </div>
+              )}
             </div>
-          </motion.div>
+          </div>
         </TabsContent>
 
         <TabsContent value="media">
@@ -269,7 +332,24 @@ export default function Dashboard() {
                 >
                   <div className="aspect-video rounded-xl bg-black/40 mb-4 flex items-center justify-center relative overflow-hidden">
                     {media.type === 'video' ? (
-                      <Play className="w-10 h-10 text-white/50 group-hover:text-white transition-colors" />
+                      <div className="flex flex-col items-center gap-2">
+                        <Play className="w-10 h-10 text-white/50 group-hover:text-white transition-colors" />
+                        <span className="text-[10px] uppercase tracking-widest opacity-40">MP4 VIDEO</span>
+                      </div>
+                    ) : media.type === 'audio' ? (
+                      <div className="flex flex-col items-center gap-2">
+                        <div className="flex gap-1 items-end h-6">
+                          {[1,2,3,4,5].map(j => (
+                            <motion.div 
+                              key={j}
+                              animate={{ height: [8, 20, 8] }}
+                              transition={{ duration: 1, repeat: Infinity, delay: j * 0.1 }}
+                              className="w-1 bg-accent/60 rounded-full"
+                            />
+                          ))}
+                        </div>
+                        <span className="text-[10px] uppercase tracking-widest opacity-40">MP4 AUDIO (WAV CONV)</span>
+                      </div>
                     ) : (
                       <ImageIcon className="w-10 h-10 text-white/50 group-hover:text-white transition-colors" />
                     )}
@@ -277,14 +357,29 @@ export default function Dashboard() {
                       {media.type.toUpperCase()}
                     </div>
                   </div>
-                  <div className="space-y-2">
-                    <div className="flex items-center text-sm font-medium">
-                      <Clock className="w-4 h-4 mr-2 text-muted-foreground" />
-                      {media.date}
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-start">
+                      <div className="space-y-1">
+                        <div className="flex items-center text-sm font-medium">
+                          <Clock className="w-4 h-4 mr-2 text-muted-foreground" />
+                          {media.date}
+                        </div>
+                        <div className="flex items-center text-xs text-primary/80">
+                          <MessageSquare className="w-3 h-3 mr-2" />
+                          Chat: {media.chatSource}
+                        </div>
+                      </div>
+                      <Button 
+                        size="icon" 
+                        variant="ghost" 
+                        className="h-8 w-8 rounded-full bg-white/5 hover:bg-primary/20 hover:text-primary transition-colors"
+                        onClick={() => handleDownload(media.fileName)}
+                      >
+                        <ArrowRight className="w-4 h-4 rotate-45" />
+                      </Button>
                     </div>
-                    <div className="flex items-center text-sm text-muted-foreground">
-                      <MapPin className="w-4 h-4 mr-2" />
-                      {media.location}
+                    <div className="flex items-center text-xs text-muted-foreground bg-white/5 p-2 rounded-lg">
+                      <span className="truncate flex-1">{media.fileName}</span>
                     </div>
                   </div>
                 </motion.div>
@@ -292,6 +387,11 @@ export default function Dashboard() {
             </div>
           </div>
         </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
       </Tabs>
     </div>
   );
