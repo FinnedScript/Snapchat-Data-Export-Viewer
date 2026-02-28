@@ -391,8 +391,3 @@ export default function Dashboard() {
     </div>
   );
 }
-
-      </Tabs>
-    </div>
-  );
-}
