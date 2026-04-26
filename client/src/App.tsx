@@ -1,4 +1,4 @@
-import { Switch, Route, useLocation } from "wouter";
+import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -9,12 +9,12 @@ import Dashboard from "@/pages/Dashboard";
 import { DynamicBackground } from "@/components/DynamicBackground";
 import { useState } from "react";
 
-function Router({ dataUploaded, onUpload }: { dataUploaded: boolean; onUpload: () => void }) {
+function Router({ parsedData, onUpload }: { parsedData: any; onUpload: (data: any) => void }) {
   return (
     <Switch>
       <Route path="/">
-        {dataUploaded ? (
-          <Dashboard />
+        {parsedData ? (
+          <Dashboard parsedData={parsedData} />
         ) : (
           <Home onUpload={onUpload} />
         )}
@@ -25,14 +25,14 @@ function Router({ dataUploaded, onUpload }: { dataUploaded: boolean; onUpload: (
 }
 
 function App() {
-  const [dataUploaded, setDataUploaded] = useState(false);
+  const [parsedData, setParsedData] = useState<any>(null);
 
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <DynamicBackground />
         <div className="relative z-10 min-h-screen">
-          <Router dataUploaded={dataUploaded} onUpload={() => setDataUploaded(true)} />
+          <Router parsedData={parsedData} onUpload={(data) => setParsedData(data)} />
         </div>
         <Toaster />
       </TooltipProvider>
