@@ -4,11 +4,11 @@ import { UploadCloud, FileJson, ArrowRight, ShieldCheck, CheckCircle2 } from "lu
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import JSZip from "jszip";
+import SparkMD5 from "spark-md5";
 
 // Define a simple web worker for the transcription and classification tasks
 // to run them off the main thread if needed, though for a mockup we'll 
 // just simulate the progress of local AI models.
-import { pipeline } from '@xenova/transformers';
 
 export default function Home({ onUpload }: { onUpload: (parsedData: any) => void }) {
   const [isDragging, setIsDragging] = useState(false);
@@ -17,22 +17,6 @@ export default function Home({ onUpload }: { onUpload: (parsedData: any) => void
   const [statusMessage, setStatusMessage] = useState("");
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
-  // Keep a reference to the loaded classifier to avoid reloading
-  const classifierRef = useRef<any>(null);
-
-  const loadClassifier = async () => {
-    if (!classifierRef.current) {
-      try {
-        classifierRef.current = await pipeline('zero-shot-image-classification', 'Xenova/clip-vit-base-patch32', {
-            device: navigator.gpu ? 'webgpu' : 'wasm'
-        } as any);
-      } catch (err) {
-        console.error("Failed to load local AI model:", err);
-      }
-    }
-    return classifierRef.current;
-  };
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -110,7 +94,7 @@ export default function Home({ onUpload }: { onUpload: (parsedData: any) => void
       setProgress(15);
 
       // 2. Custom Stickers
-      const stickersFile = contents.file(/json\/custom_stickers\.json$/i)[0];
+      const stickersFile = contents.file(/json\/custom_stickers\.json$/i)[0] || contents.file(/json\/custom_sticker\.json$/i)[0];
       if (stickersFile) {
         const text = await stickersFile.async("text");
         try {
@@ -121,6 +105,9 @@ export default function Home({ onUpload }: { onUpload: (parsedData: any) => void
              parsedData.customStickers = json["My Custom Stickers"].length;
           } else if (json["Custom Stickers"]) {
              parsedData.customStickers = json["Custom Stickers"].length;
+          } else {
+             // Just count the keys/items if it's an object but not explicitly keyed
+             parsedData.customStickers = Object.keys(json).length;
           }
         } catch (e) {}
       }
@@ -377,46 +364,19 @@ export default function Home({ onUpload }: { onUpload: (parsedData: any) => void
       );
       
       let processedMedia: any[] = [];
-      const seenBaseNames = new Set<string>();
-
-      // We need to group by base name to find the highest quality version if there are multiple
-      const mediaGroups: Record<string, string[]> = {};
-      mediaFiles.forEach(path => {
-        const fileName = path.split('/').pop() || "";
-        if (fileName.toLowerCase().includes('thumbnail') || fileName.toLowerCase().includes('overlay')) return;
-
-        // Deduplication based on base name
-        const baseName = fileName.split('.')[0].replace(/(_\d+x\d+)/, ''); 
-        if (!mediaGroups[baseName]) {
-            mediaGroups[baseName] = [];
-        }
-        mediaGroups[baseName].push(path);
-      });
-
-      // Map media to chat sources
-      const getChatSourcesForMedia = (mediaId: string) => {
-         const sources: string[] = [];
-         chatHistory.forEach(msg => {
-            if (msg.type === 'media' && msg.content.includes(mediaId)) {
-               if (!sources.includes(msg.friend)) sources.push(msg.friend);
-            }
-         });
-         return sources.join(", ") || "Unknown Chat";
-      };
 
       setProgress(70);
       
-      setStatusMessage("Loading WebGPU CLIP models for semantic categorization...");
-      const classifier = await loadClassifier();
+      setStatusMessage("Extracting Media Files & Hashing for Deduplication...");
       
       let itemsProcessed = 0;
-      const totalItems = Object.keys(mediaGroups).length;
+      const totalItems = mediaFiles.length;
+      
+      const fileHashes: Record<string, any> = {};
 
-      for (const [baseName, paths] of Object.entries(mediaGroups)) {
-          // Sort paths to get the longest path (often indicates highest quality or least cropped)
-          paths.sort((a, b) => b.length - a.length);
-          const path = paths[0]; 
+      for (const path of mediaFiles) {
           const fileName = path.split('/').pop() || "";
+          if (fileName.toLowerCase().includes('thumbnail') || fileName.toLowerCase().includes('overlay')) continue;
           
           let type = fileName.endsWith('.mp4') ? 'video' : 'image';
           
@@ -429,57 +389,77 @@ export default function Home({ onUpload }: { onUpload: (parsedData: any) => void
           let date = "Unknown Date";
           const dateMatch = fileName.match(/^(\d{4}-\d{2}-\d{2})/);
           if (dateMatch) {
-             date = dateMatch[1];
+             const [year, month, day] = dateMatch[1].split('-');
+             const dateObj = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+             date = dateObj.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
           }
 
-          // Extract actual file data for preview
-          const fileData = await contents.files[path].async('blob');
+          // Read file data
+          const fileData = await contents.files[path].async('uint8array');
+          
+          // Compute MD5 hash of the file contents to deduplicate identical files with different names
+          const hash = SparkMD5.ArrayBuffer.hash(fileData);
+          
           const mimeType = type === 'video' ? 'video/mp4' : type === 'audio' ? 'audio/mp4' : 'image/jpeg';
           const blob = new Blob([fileData], { type: mimeType });
           const url = URL.createObjectURL(blob);
+          const baseName = fileName.split('.')[0].replace(/(_\d+x\d+)/, '');
           
-          // Link this blob URL to any chat messages that reference this media ID
-          chatHistory.forEach(msg => {
-             if (msg.type === 'media' && msg.content.includes(baseName)) {
-                 msg.url = url;
-                 msg.mediaType = type;
-             }
-          });
-
-          let category = "";
-          
-          // Run AI Categorization using WebGPU transformers if it's an image
-          if (type === 'image' && classifier) {
-             try {
-                 // For the mockup we might just pick top 2 classes
-                 const categories = ["outdoor", "indoor", "selfie", "food", "pet", "document", "group photo", "landscape"];
-                 // In a real browser environment, loading an image into the pipeline requires it to be an Image object or raw pixels
-                 // This snippet conceptually shows how we'd do it, but we'll mock the classification output for speed & stability in this prototype
-                 category = categories.sort(() => 0.5 - Math.random()).slice(0, 2).join(', ');
-             } catch (e) {
-                 console.error("Classification error:", e);
-                 category = "image";
-             }
-          } else if (type === 'video') {
-             category = "video";
-          } else if (type === 'audio') {
-             category = "voice note";
+          if (!fileHashes[hash]) {
+              fileHashes[hash] = {
+                 id: baseName, // Use the first base name we find for ID linking
+                 fileName: fileName,
+                 allFileNames: [fileName],
+                 type,
+                 date,
+                 path,
+                 url,
+                 transcript: "",
+                 category: type
+              };
+          } else {
+              if (!fileHashes[hash].allFileNames.includes(fileName)) {
+                  fileHashes[hash].allFileNames.push(fileName);
+              }
+              // Update the ID to the shorter one if applicable (often the base ID)
+              if (baseName.length < fileHashes[hash].id.length) {
+                  fileHashes[hash].id = baseName;
+              }
           }
 
-          processedMedia.push({
-             id: baseName,
-             fileName,
-             type,
-             date,
-             chatSource: getChatSourcesForMedia(baseName),
-             path,
-             url,
-             transcript: "", // Will be filled
-             category
-          });
-          
           itemsProcessed++;
           setProgress(70 + Math.floor((itemsProcessed / totalItems) * 30));
+      }
+      
+      // Now link the deduplicated media back to chats based on their base IDs
+      const uniqueMediaList = Object.values(fileHashes);
+      
+      const getChatSourcesForMedia = (mediaId: string, allFileNames: string[]) => {
+         const sources: string[] = [];
+         chatHistory.forEach(msg => {
+            if (msg.type === 'media') {
+                const matchFound = msg.content.includes(mediaId) || allFileNames.some(name => msg.content.includes(name.split('.')[0]));
+                if (matchFound) {
+                   if (!sources.includes(msg.friend)) sources.push(msg.friend);
+                }
+            }
+         });
+         return sources.join(", ") || "Unknown Chat";
+      };
+
+      for (const media of uniqueMediaList) {
+          media.chatSource = getChatSourcesForMedia(media.id, media.allFileNames);
+          // Link this blob URL to any chat messages that reference this media ID
+          chatHistory.forEach(msg => {
+             if (msg.type === 'media') {
+                 const matchFound = msg.content.includes(media.id) || media.allFileNames.some((name: string) => msg.content.includes(name.split('.')[0]));
+                 if (matchFound) {
+                     msg.url = media.url;
+                     msg.mediaType = media.type;
+                 }
+             }
+          });
+          processedMedia.push(media);
       }
 
       parsedData.media = processedMedia;
@@ -561,7 +541,7 @@ export default function Home({ onUpload }: { onUpload: (parsedData: any) => void
               <div className="space-y-4 w-full max-w-md">
                 <h3 className="text-xl font-semibold">
                   {uploadState === "parsing" && "Decrypting Reality..."}
-                  {uploadState === "categorizing" && "AI Categorization..."}
+                  {uploadState === "categorizing" && "Processing Media..."}
                   {uploadState === "transcribing" && "Semantic Indexing..."}
                   {uploadState === "complete" && "Ready!"}
                 </h3>
