@@ -16,60 +16,18 @@ import {
   Phone,
   Sticker,
   Search,
-  PieChart
+  PieChart,
+  Camera,
+  AudioLines,
+  Download,
+  Eye,
+  Maximize2
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, PieChart as RePieChart, Pie, Cell } from "recharts";
+import { ResponsiveContainer, PieChart as RePieChart, Pie, Cell, Tooltip } from "recharts";
 import { Input } from "@/components/ui/input";
-
-// Generate activity data purely for visual filler if real data isn't easily time-series mapped
-const activityData = [
-  { month: "Jan", snaps: 4000 },
-  { month: "Feb", snaps: 3000 },
-  { month: "Mar", snaps: 5500 },
-  { month: "Apr", snaps: 4500 },
-  { month: "May", snaps: 6000 },
-  { month: "Jun", snaps: 8000 },
-];
-
-const mockChats = [
-  { 
-    id: 1, 
-    user: "Alex D.", 
-    messages: [
-      { id: "m1", type: "text", content: "Did you see that?", time: "2m ago", date: "Feb 26, 2026", unsaved: false, transcript: undefined },
-      { id: "m2", type: "snap", content: "Snap sent (unsaved)", time: "1m ago", date: "Feb 26, 2026", unsaved: true, transcript: undefined }
-    ],
-    time: "2m ago", unread: true 
-  },
-  { 
-    id: 2, 
-    user: "Sarah M.", 
-    messages: [
-      { id: "m3", type: "text", content: "Haha yeah exactly", time: "1h ago", date: "Feb 25, 2026", unsaved: false, transcript: undefined },
-      { id: "m4", type: "image", content: "memory_01.jpg", chatSource: "Sarah M.", time: "1h ago", date: "Feb 25, 2026", transcript: "Look at this view!", unsaved: false }
-    ],
-    time: "1h ago", unread: false 
-  },
-  { 
-    id: 3, 
-    user: "Group: Weekend", 
-    messages: [
-      { id: "m5", type: "audio", content: "Audio Message (0:14)", chatSource: "Group: Weekend", time: "3h ago", date: "Feb 25, 2026", transcript: "Hey guys are we still on for tonight?", unsaved: false }
-    ],
-    time: "3h ago", unread: false 
-  },
-];
-
-const mockMedia = [
-  { id: 1, type: "image", date: "Oct 12, 2023", location: "New York, NY", fileName: "memory_2023_10_12.jpg", chatSource: "Sarah M.", transcript: "city skyline tall buildings" },
-  { id: 2, type: "video", date: "Sep 28, 2023", location: "Los Angeles, CA", fileName: "video_2023_09_28.mp4", chatSource: "Alex D.", transcript: "skatepark tricks friends" },
-  { id: 3, type: "audio", date: "Sep 15, 2023", location: "Chicago, IL", fileName: "voice_note_01.mp4", chatSource: "Group: Weekend", transcript: "Hey guys are we still on for tonight?" },
-  { id: 4, type: "image", date: "Aug 02, 2023", location: "Miami, FL", fileName: "beach_day.jpg", chatSource: "Self", transcript: "ocean beach sand sunny" },
-  { id: 5, type: "video", date: "Jul 21, 2023", location: "Austin, TX", fileName: "concert.mp4", chatSource: "Mike T.", transcript: "live music band stage lights loud" },
-  { id: 6, type: "image", date: "Jul 04, 2023", location: "Denver, CO", fileName: "fireworks.jpg", chatSource: "Emma W.", transcript: "night sky fireworks bright colors" },
-];
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -88,14 +46,33 @@ const itemVariants = {
 
 export default function Dashboard({ parsedData }: { parsedData?: any }) {
   const [activeTab, setActiveTab] = useState("overview");
-  const [selectedChat, setSelectedChat] = useState<typeof mockChats[0] | null>(null);
+  const [selectedChat, setSelectedChat] = useState<any>(null);
+  const [selectedSnap, setSelectedSnap] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [transcribingIds, setTranscribingIds] = useState<Set<string>>(new Set());
 
-  const handleDownload = (fileName: string) => {
-    console.log(`Downloading ${fileName}...`);
+  const handleDownload = (media: any) => {
+    console.log(`Downloading ${media.fileName}...`);
+    // In a real app we'd construct a blob URL and trigger a download link
   };
 
-  // Format Call Time
+  const handleTranscribe = async (id: string) => {
+     setTranscribingIds(prev => new Set(prev).add(id));
+     // Simulate local Whisper transcription latency
+     await new Promise(resolve => setTimeout(resolve, 2500));
+     
+     const mediaItem = parsedData.media.find((m: any) => m.id === id);
+     if (mediaItem) {
+        mediaItem.transcript = "Hey, yeah I'll be there in about 10 minutes. Just finishing up here.";
+     }
+     
+     setTranscribingIds(prev => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+     });
+  };
+
   const formatTime = (seconds: number) => {
      const h = Math.floor(seconds / 3600);
      const m = Math.floor((seconds % 3600) / 60);
@@ -103,7 +80,6 @@ export default function Dashboard({ parsedData }: { parsedData?: any }) {
      return `${m}m ${seconds % 60}s`;
   };
 
-  // Process App Time spent for Pie Chart
   const timeSpentData = useMemo(() => {
      if (!parsedData?.timeSpent || parsedData.timeSpent.length === 0) return [];
      
@@ -119,17 +95,113 @@ export default function Dashboard({ parsedData }: { parsedData?: any }) {
   const COLORS = ['#FFFC00', '#007AFF', '#FF0050', '#9b51e0', '#2ecc71', '#00d2ff', '#f39c12'];
 
   const filteredMedia = useMemo(() => {
-     const dataToFilter = parsedData?.media?.length > 0 ? parsedData.media : mockMedia;
+     const dataToFilter = parsedData?.media || [];
      if (!searchQuery) return dataToFilter;
      const q = searchQuery.toLowerCase();
      return dataToFilter.filter((m: any) => 
         m.fileName.toLowerCase().includes(q) || 
         m.chatSource.toLowerCase().includes(q) ||
-        (m.transcript && m.transcript.toLowerCase().includes(q))
+        (m.transcript && m.transcript.toLowerCase().includes(q)) ||
+        (m.category && m.category.toLowerCase().includes(q))
      );
   }, [searchQuery, parsedData]);
 
-  const activeChats = parsedData?.chats?.length > 0 ? parsedData.chats : mockChats;
+  const activeChats = parsedData?.chats || [];
+  const activeSnaps = parsedData?.snaps || [];
+
+  const renderMessage = (msg: any, idx: number, arr: any[]) => {
+      const showDate = idx === 0 || arr[idx - 1].date !== msg.date;
+      const isSystem = msg.type === 'system';
+      const isMe = msg.from === parsedData?.username || msg.from === 'data_export_user';
+
+      return (
+        <div key={msg.id} className="space-y-4">
+          {showDate && (
+            <div className="flex justify-center">
+              <span className="text-[10px] uppercase tracking-widest text-muted-foreground bg-white/5 px-3 py-1 rounded-full">
+                {msg.date}
+              </span>
+            </div>
+          )}
+          
+          {isSystem ? (
+            <div className="flex justify-center">
+              <span className="text-xs text-muted-foreground text-center px-4 py-1">
+                 {msg.content}
+              </span>
+            </div>
+          ) : (
+            <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
+              <div className={`max-w-[80%] rounded-2xl p-4 ${
+                isMe ? 'bg-primary/20 text-white' : 'bg-white/10'
+              }`}>
+                {msg.type === 'media' ? (
+                  <div className="space-y-3">
+                    <div className="aspect-square w-48 bg-black/40 rounded-lg flex items-center justify-center border border-white/10 relative overflow-hidden">
+                      {/* Show actual image/video preview if we have a blob URL */}
+                      {msg.url ? (
+                         msg.mediaType === 'video' ? (
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+                               <Play className="w-8 h-8 text-white/50" />
+                            </div>
+                         ) : msg.mediaType === 'audio' ? (
+                             <AudioLines className="w-8 h-8 text-accent/50" />
+                         ) : (
+                            <img src={msg.url} alt="Media" className="absolute inset-0 w-full h-full object-cover" />
+                         )
+                      ) : (
+                        <ImageIcon className="w-8 h-8 text-white/20" />
+                      )}
+                    </div>
+                    <p className="text-xs opacity-60 break-words">Media ID: {msg.content.substring(0, 12)}...</p>
+                  </div>
+                ) : (
+                  <p className="text-sm break-words whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                )}
+              </div>
+              <div className="text-[10px] text-muted-foreground mt-1 px-1 flex items-center gap-1">
+                 <span className="font-semibold">{msg.from}</span> • {msg.time}
+              </div>
+            </div>
+          )}
+        </div>
+      );
+  };
+
+  const renderSnap = (snap: any, idx: number, arr: any[]) => {
+      const showDate = idx === 0 || arr[idx - 1].date !== snap.date;
+      const isMe = snap.from === parsedData?.username || snap.from === 'data_export_user';
+
+      return (
+        <div key={snap.id} className="space-y-4">
+          {showDate && (
+            <div className="flex justify-center">
+              <span className="text-[10px] uppercase tracking-widest text-muted-foreground bg-white/5 px-3 py-1 rounded-full">
+                {snap.date}
+              </span>
+            </div>
+          )}
+          
+          <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
+            <div className={`max-w-[80%] rounded-2xl p-4 border border-dashed flex items-center gap-3 ${
+              isMe ? 'border-primary/40 bg-primary/5 text-white' : 'border-white/20 bg-white/5'
+            }`}>
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isMe ? 'bg-primary/20 text-primary' : 'bg-white/10'}`}>
+                {snap.type === 'video' ? <Play className="w-4 h-4" /> : <Camera className="w-4 h-4" />}
+              </div>
+              <div>
+                 <div className="text-sm font-medium">{snap.type.toUpperCase()}</div>
+                 <div className="text-xs opacity-60">{isMe ? 'Sent' : 'Received'}</div>
+              </div>
+            </div>
+            <div className="text-[10px] text-muted-foreground mt-1 px-1 flex items-center gap-1">
+               <span className="font-semibold">{snap.from}</span> • {snap.time}
+            </div>
+          </div>
+        </div>
+      );
+  };
+
 
   return (
     <div className="min-h-screen p-6 md:p-12 max-w-7xl mx-auto">
@@ -142,7 +214,7 @@ export default function Dashboard({ parsedData }: { parsedData?: any }) {
           <h1 className="text-4xl font-bold text-white mb-2">Your Snapchat Reality</h1>
           <p className="text-muted-foreground flex items-center gap-2">
              <User className="w-4 h-4"/> 
-             {parsedData?.username || "Unknown User"} 
+             <span className="font-semibold text-white">{parsedData?.username || "Unknown User"}</span>
              <span className="mx-2 opacity-30">•</span>
              Data analyzed securely in browser.
           </p>
@@ -154,15 +226,18 @@ export default function Dashboard({ parsedData }: { parsedData?: any }) {
       </motion.div>
 
       <Tabs defaultValue="overview" className="w-full" onValueChange={setActiveTab}>
-        <TabsList className="glass-panel border-none bg-transparent h-auto p-1 mb-8">
-          <TabsTrigger value="overview" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary rounded-xl px-6 py-3">
+        <TabsList className="glass-panel border-none bg-transparent h-auto p-1 mb-8 overflow-x-auto flex flex-nowrap w-full justify-start items-center hide-scrollbar">
+          <TabsTrigger value="overview" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary rounded-xl px-6 py-3 whitespace-nowrap">
             <Activity className="w-4 h-4 mr-2" /> Overview
           </TabsTrigger>
-          <TabsTrigger value="chats" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary rounded-xl px-6 py-3">
-            <MessageSquare className="w-4 h-4 mr-2" /> Chats & Audio
+          <TabsTrigger value="chats" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary rounded-xl px-6 py-3 whitespace-nowrap">
+            <MessageSquare className="w-4 h-4 mr-2" /> Chats
           </TabsTrigger>
-          <TabsTrigger value="media" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary rounded-xl px-6 py-3">
-            <ImageIcon className="w-4 h-4 mr-2" /> Memories & Search
+          <TabsTrigger value="snaps" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary rounded-xl px-6 py-3 whitespace-nowrap">
+            <Camera className="w-4 h-4 mr-2" /> Snaps
+          </TabsTrigger>
+          <TabsTrigger value="media" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary rounded-xl px-6 py-3 whitespace-nowrap">
+            <ImageIcon className="w-4 h-4 mr-2" /> Media
           </TabsTrigger>
         </TabsList>
 
@@ -209,10 +284,10 @@ export default function Dashboard({ parsedData }: { parsedData?: any }) {
                   <div className="w-16 h-16 rounded-full bg-accent/20 flex items-center justify-center text-accent">
                     <Users className="w-8 h-8" />
                   </div>
-                  <div>
+                  <div className="w-full">
                     <p className="text-muted-foreground text-sm font-medium uppercase tracking-wider mb-1">Top Friend</p>
-                    <h2 className="text-3xl font-display font-bold text-white truncate max-w-full px-2" title={parsedData?.topFriend}>{parsedData?.topFriend || "None"}</h2>
-                    <p className="text-xs text-muted-foreground mt-1">Based on interaction volume</p>
+                    <h2 className="text-3xl font-display font-bold text-white truncate px-2" title={parsedData?.topFriend}>{parsedData?.topFriend || "None"}</h2>
+                    <p className="text-[10px] text-muted-foreground mt-1">Based on interaction volume</p>
                   </div>
                 </CardContent>
               </Card>
@@ -226,7 +301,7 @@ export default function Dashboard({ parsedData }: { parsedData?: any }) {
                        <Phone className="w-6 h-6" />
                     </div>
                     <div>
-                      <p className="text-muted-foreground text-xs font-medium uppercase tracking-wider">Total Call Time</p>
+                      <p className="text-muted-foreground text-[10px] font-medium uppercase tracking-wider">Total Call Time</p>
                       <h3 className="text-2xl font-display font-bold text-white">{formatTime(parsedData?.callTime || 0)}</h3>
                     </div>
                   </div>
@@ -236,7 +311,7 @@ export default function Dashboard({ parsedData }: { parsedData?: any }) {
                        <Sticker className="w-6 h-6" />
                     </div>
                     <div>
-                      <p className="text-muted-foreground text-xs font-medium uppercase tracking-wider">Custom Stickers</p>
+                      <p className="text-muted-foreground text-[10px] font-medium uppercase tracking-wider">Custom Stickers</p>
                       <h3 className="text-2xl font-display font-bold text-white">{parsedData?.customStickers || 0}</h3>
                     </div>
                   </div>
@@ -244,7 +319,6 @@ export default function Dashboard({ parsedData }: { parsedData?: any }) {
               </Card>
             </motion.div>
 
-            {/* ROW 2: Engagement Stats */}
             <motion.div variants={itemVariants} className="col-span-1 md:col-span-2">
               <Card className="glass-panel border-white/5 bg-white/5 h-full">
                 <CardHeader>
@@ -307,16 +381,16 @@ export default function Dashboard({ parsedData }: { parsedData?: any }) {
                        App Time Distribution
                      </CardTitle>
                    </CardHeader>
-                   <CardContent className="h-[300px] w-full flex items-center">
-                      <div className="w-1/2 h-full">
+                   <CardContent className="flex flex-col md:flex-row items-center h-auto md:h-[300px] w-full pb-8">
+                      <div className="w-full md:w-1/2 h-[250px] md:h-full">
                          <ResponsiveContainer width="100%" height="100%">
                            <RePieChart>
                              <Pie
                                data={timeSpentData}
                                cx="50%"
                                cy="50%"
-                               innerRadius={80}
-                               outerRadius={110}
+                               innerRadius={60}
+                               outerRadius={90}
                                paddingAngle={5}
                                dataKey="value"
                                stroke="none"
@@ -332,11 +406,11 @@ export default function Dashboard({ parsedData }: { parsedData?: any }) {
                            </RePieChart>
                          </ResponsiveContainer>
                       </div>
-                      <div className="w-1/2 flex flex-col gap-3 justify-center pl-8">
+                      <div className="w-full md:w-1/2 flex flex-col gap-3 justify-center md:pl-8 mt-4 md:mt-0">
                          {timeSpentData.map((item: any, i: number) => (
                             <div key={item.name} className="flex items-center gap-3">
-                               <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
-                               <span className="text-sm font-medium flex-1">{item.name}</span>
+                               <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
+                               <span className="text-sm font-medium flex-1 truncate">{item.name}</span>
                                <span className="text-sm text-muted-foreground">{item.value.toFixed(2)}%</span>
                             </div>
                          ))}
@@ -351,112 +425,124 @@ export default function Dashboard({ parsedData }: { parsedData?: any }) {
 
         <TabsContent value="chats">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="space-y-4">
-              <h3 className="text-2xl font-bold mb-6">Recent Conversations</h3>
-              {activeChats.map((chat: any, i: number) => (
-                <motion.div 
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: i * 0.1 }}
-                  key={chat.id}
-                  onClick={() => setSelectedChat(chat)}
-                  className={`glass-panel p-4 rounded-2xl flex items-center gap-4 hover:bg-white/10 transition-colors cursor-pointer ${selectedChat?.id === chat.id ? 'bg-white/10 ring-1 ring-primary/50' : ''}`}
-                >
-                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary/40 to-accent/40 flex items-center justify-center text-lg font-bold shrink-0">
-                    {chat.user.charAt(0)}
-                  </div>
-                  <div className="flex-1 overflow-hidden">
-                    <h4 className={`font-semibold ${chat.unread ? 'text-white' : 'text-white/80'} truncate`}>{chat.user}</h4>
-                    <p className="text-sm text-muted-foreground truncate w-full">
-                      {chat.messages[chat.messages.length - 1]?.content || "No messages"}
-                    </p>
-                  </div>
-                  <div className="text-xs text-muted-foreground flex flex-col items-end shrink-0">
-                    <span>{chat.time}</span>
-                  </div>
-                </motion.div>
-              ))}
+            <div className="space-y-4 lg:h-[700px] flex flex-col">
+              <h3 className="text-2xl font-bold mb-2 shrink-0">Recent Conversations</h3>
+              <div className="flex-1 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
+                {activeChats.map((chat: any, i: number) => (
+                  <motion.div 
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: i * 0.05 }}
+                    key={chat.id}
+                    onClick={() => setSelectedChat(chat)}
+                    className={`glass-panel p-4 rounded-2xl flex items-center gap-4 hover:bg-white/10 transition-colors cursor-pointer ${selectedChat?.id === chat.id ? 'bg-white/10 ring-1 ring-primary/50' : ''}`}
+                  >
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary/40 to-accent/40 flex items-center justify-center text-lg font-bold shrink-0">
+                      {chat.user.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="flex-1 overflow-hidden">
+                      <h4 className="font-semibold text-white truncate">{chat.user}</h4>
+                      <p className="text-sm text-muted-foreground truncate w-full">
+                        {chat.messages[chat.messages.length - 1]?.content || "No messages"}
+                      </p>
+                    </div>
+                    <div className="text-xs text-muted-foreground flex flex-col items-end shrink-0">
+                      <span>{chat.time}</span>
+                    </div>
+                  </motion.div>
+                ))}
+                {activeChats.length === 0 && (
+                   <div className="text-center p-8 text-muted-foreground">No chats found.</div>
+                )}
+              </div>
             </div>
             
             <div className="lg:col-span-2">
               {selectedChat ? (
-                <div className="glass-panel rounded-3xl overflow-hidden flex flex-col h-[600px]">
-                  <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
+                <div className="glass-panel rounded-3xl overflow-hidden flex flex-col h-[700px]">
+                  <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between shadow-sm z-10">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center font-bold text-primary">
-                        {selectedChat.user.charAt(0)}
+                        {selectedChat.user.charAt(0).toUpperCase()}
                       </div>
-                      <h4 className="font-bold">{selectedChat.user}</h4>
+                      <h4 className="font-bold text-lg">{selectedChat.user}</h4>
+                    </div>
+                    <div className="relative w-64">
+                       <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                       <Input 
+                         className="pl-9 bg-white/5 border-white/10 rounded-full w-full h-8 text-xs"
+                         placeholder="Search in conversation..."
+                         value={searchQuery}
+                         onChange={e => setSearchQuery(e.target.value)}
+                       />
                     </div>
                   </div>
-                  <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-black/20">
-                    {selectedChat.messages.map((msg, idx) => {
-                      const showDate = idx === 0 || selectedChat.messages[idx - 1].date !== msg.date;
-                      return (
-                        <div key={msg.id} className="space-y-4">
-                          {showDate && (
-                            <div className="flex justify-center">
-                              <span className="text-[10px] uppercase tracking-widest text-muted-foreground bg-white/5 px-3 py-1 rounded-full">
-                                {msg.date}
-                              </span>
-                            </div>
-                          )}
-                          <div className={`flex flex-col ${idx % 2 === 0 ? 'items-start' : 'items-end'}`}>
-                            <div className={`max-w-[80%] rounded-2xl p-4 ${
-                              msg.unsaved ? 'border border-dashed border-white/20 bg-transparent opacity-60' :
-                              idx % 2 === 0 ? 'bg-white/10' : 'bg-primary/20 text-white'
-                            }`}>
-                              {msg.type === 'snap' ? (
-                                <div className="flex items-center gap-3">
-                                  <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">
-                                    <ImageIcon className="w-4 h-4 text-primary" />
-                                  </div>
-                                  <div className="text-sm italic">Unsaved Snap</div>
-                                </div>
-                              ) : msg.type === 'audio' ? (
-                                <div className="space-y-2">
-                                  <div className="flex items-center gap-3">
-                                    <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center">
-                                      <Play className="w-4 h-4 text-accent" />
-                                    </div>
-                                    <div className="w-32 h-1 bg-white/20 rounded-full overflow-hidden flex-shrink-0">
-                                      <div className="h-full bg-accent w-1/2" />
-                                    </div>
-                                    <span className="text-xs shrink-0">0:14</span>
-                                  </div>
-                                  {msg.transcript && (
-                                     <div className="mt-2 text-xs italic opacity-70 bg-black/20 p-2 rounded">
-                                        "{msg.transcript}"
-                                     </div>
-                                  )}
-                                </div>
-                              ) : msg.type === 'image' ? (
-                                <div className="space-y-3">
-                                  <div className="aspect-square w-48 bg-black/40 rounded-lg flex items-center justify-center">
-                                    <ImageIcon className="w-8 h-8 text-white/20" />
-                                  </div>
-                                  <p className="text-xs opacity-60 italic break-words">{msg.content}</p>
-                                  {msg.transcript && (
-                                     <div className="text-xs italic opacity-70 border-t border-white/10 pt-2">
-                                        Semantic: {msg.transcript}
-                                     </div>
-                                  )}
-                                </div>
-                              ) : (
-                                <p className="text-sm break-words">{msg.content}</p>
-                              )}
-                            </div>
-                            <span className="text-[10px] text-muted-foreground mt-1 px-1">{msg.time}</span>
-                          </div>
-                        </div>
-                      );
-                    })}
+                  <div className="flex-1 overflow-y-auto p-6 bg-black/20 custom-scrollbar flex flex-col gap-2">
+                    {selectedChat.messages
+                      .filter((msg: any) => !searchQuery || msg.content.toLowerCase().includes(searchQuery.toLowerCase()))
+                      .map((msg: any, idx: number) => renderMessage(msg, idx, selectedChat.messages))}
                   </div>
                 </div>
               ) : (
-                <div className="glass-panel rounded-3xl h-[600px] flex flex-col items-center justify-center text-muted-foreground p-12 text-center">
+                <div className="glass-panel rounded-3xl h-[700px] flex flex-col items-center justify-center text-muted-foreground p-12 text-center">
                   <MessageSquare className="w-16 h-16 mb-4 opacity-20" />
-                  <p>Select a conversation to view chat history and saved media.</p>
+                  <p>Select a conversation to view detailed chat history.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="snaps">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="space-y-4 lg:h-[700px] flex flex-col">
+              <h3 className="text-2xl font-bold mb-2 shrink-0">Snap History</h3>
+              <div className="flex-1 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
+                {activeSnaps.map((snapGrp: any, i: number) => (
+                  <motion.div 
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: i * 0.05 }}
+                    key={snapGrp.id}
+                    onClick={() => setSelectedSnap(snapGrp)}
+                    className={`glass-panel p-4 rounded-2xl flex items-center gap-4 hover:bg-white/10 transition-colors cursor-pointer ${selectedSnap?.id === snapGrp.id ? 'bg-white/10 ring-1 ring-primary/50' : ''}`}
+                  >
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary/40 to-accent/40 flex items-center justify-center text-lg font-bold shrink-0">
+                      {snapGrp.user.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="flex-1 overflow-hidden">
+                      <h4 className="font-semibold text-white truncate">{snapGrp.user}</h4>
+                      <p className="text-sm text-primary truncate w-full flex items-center gap-1">
+                        <Camera className="w-3 h-3"/> {snapGrp.snaps.length} Snaps
+                      </p>
+                    </div>
+                  </motion.div>
+                ))}
+                {activeSnaps.length === 0 && (
+                   <div className="text-center p-8 text-muted-foreground">No snaps found.</div>
+                )}
+              </div>
+            </div>
+            
+            <div className="lg:col-span-2">
+              {selectedSnap ? (
+                <div className="glass-panel rounded-3xl overflow-hidden flex flex-col h-[700px]">
+                  <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between shadow-sm z-10">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center font-bold text-primary">
+                        {selectedSnap.user.charAt(0).toUpperCase()}
+                      </div>
+                      <h4 className="font-bold text-lg">{selectedSnap.user} - Snap History</h4>
+                    </div>
+                  </div>
+                  <div className="flex-1 overflow-y-auto p-6 bg-black/20 custom-scrollbar flex flex-col gap-2">
+                    {selectedSnap.snaps.map((snap: any, idx: number) => renderSnap(snap, idx, selectedSnap.snaps))}
+                  </div>
+                </div>
+              ) : (
+                <div className="glass-panel rounded-3xl h-[700px] flex flex-col items-center justify-center text-muted-foreground p-12 text-center">
+                  <Camera className="w-16 h-16 mb-4 opacity-20" />
+                  <p>Select a user to view snap metadata history.</p>
                 </div>
               )}
             </div>
@@ -467,18 +553,21 @@ export default function Dashboard({ parsedData }: { parsedData?: any }) {
           <div className="space-y-6">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
               <div>
-                 <h3 className="text-2xl font-bold">Saved Media & Memories</h3>
+                 <h3 className="text-2xl font-bold">Media</h3>
                  <div className="text-sm text-muted-foreground mt-1">
-                    Deduplicated & highest quality retained. Showing metadata & transcripts.
+                    Deduplicated & highest quality retained. Categorized locally by AI.
                  </div>
               </div>
               <div className="relative w-full md:w-72">
                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                  <Input 
                    className="pl-9 bg-white/5 border-white/10 rounded-full w-full"
-                   placeholder="Search transcripts, filenames..."
-                   value={searchQuery}
-                   onChange={e => setSearchQuery(e.target.value)}
+                   placeholder="Search AI categories, filenames..."
+                   onChange={e => {
+                     // We need a separate state for media search if we're sharing the component state
+                     // For mockup simplicity we can just reuse searchQuery but it clears when switching tabs
+                     setSearchQuery(e.target.value)
+                   }}
                  />
               </div>
             </div>
@@ -497,64 +586,120 @@ export default function Dashboard({ parsedData }: { parsedData?: any }) {
                     key={media.id}
                     className="glass-panel rounded-2xl p-4 flex flex-col group hover:bg-white/10 transition-colors"
                   >
-                    <div className="aspect-video rounded-xl bg-black/40 mb-4 flex items-center justify-center relative overflow-hidden shrink-0">
-                      {media.type === 'video' ? (
-                        <div className="flex flex-col items-center gap-2">
-                          <Play className="w-10 h-10 text-white/50 group-hover:text-white transition-colors" />
-                          <span className="text-[10px] uppercase tracking-widest opacity-40">MP4 VIDEO</span>
-                        </div>
-                      ) : media.type === 'audio' ? (
-                        <div className="flex flex-col items-center gap-2">
-                          <div className="flex gap-1 items-end h-6">
-                            {[1,2,3,4,5].map(j => (
-                              <motion.div 
-                                key={j}
-                                animate={{ height: [8, 20, 8] }}
-                                transition={{ duration: 1, repeat: Infinity, delay: j * 0.1 }}
-                                className="w-1 bg-accent/60 rounded-full"
-                              />
-                            ))}
+                    <Dialog>
+                       <DialogTrigger asChild>
+                          <div className="aspect-video rounded-xl bg-black/60 mb-4 flex items-center justify-center relative overflow-hidden shrink-0 cursor-pointer group/preview">
+                            {media.type === 'video' ? (
+                              <div className="flex flex-col items-center gap-2">
+                                <Play className="w-10 h-10 text-white/50 group-hover/preview:text-white transition-colors" />
+                                <span className="text-[10px] uppercase tracking-widest opacity-40">VIDEO</span>
+                              </div>
+                            ) : media.type === 'audio' ? (
+                              <div className="flex flex-col items-center gap-2">
+                                <AudioLines className="w-10 h-10 text-accent/50 group-hover/preview:text-accent transition-colors" />
+                                <span className="text-[10px] uppercase tracking-widest text-accent/70">AUDIO</span>
+                              </div>
+                            ) : (
+                              <ImageIcon className="w-10 h-10 text-white/50 group-hover/preview:text-white transition-colors" />
+                            )}
+                            <div className="absolute inset-0 bg-black/0 group-hover/preview:bg-black/20 transition-colors flex items-center justify-center">
+                               <Maximize2 className="w-6 h-6 text-white opacity-0 group-hover/preview:opacity-100 transition-opacity" />
+                            </div>
                           </div>
-                          <span className="text-[10px] uppercase tracking-widest text-accent">MP4 AUDIO (WAV CONV)</span>
-                        </div>
-                      ) : (
-                        <ImageIcon className="w-10 h-10 text-white/50 group-hover:text-white transition-colors" />
-                      )}
-                      <div className="absolute bottom-2 right-2 bg-black/60 px-2 py-1 rounded text-xs backdrop-blur-md">
-                        {media.type.toUpperCase()}
-                      </div>
-                    </div>
+                       </DialogTrigger>
+                       <DialogContent className="max-w-4xl bg-black/90 border-white/10 p-0 overflow-hidden">
+                          <div className="w-full aspect-video flex items-center justify-center bg-black relative">
+                             {media.type === 'video' ? (
+                                <div className="w-full h-full flex flex-col">
+                                   <div className="flex-1 flex items-center justify-center">
+                                     <Play className="w-20 h-20 text-white/20" />
+                                     <span className="absolute bottom-16 text-muted-foreground">Video Preview Unavailable without blob</span>
+                                   </div>
+                                   {/* Custom Video Controls Mockup */}
+                                   <div className="h-12 bg-black/80 px-4 flex items-center gap-4 border-t border-white/10 shrink-0 relative z-20">
+                                      <Play className="w-5 h-5 text-white cursor-pointer hover:text-primary transition-colors" />
+                                      <div className="text-xs font-mono">0:00</div>
+                                      <div className="flex-1 h-1.5 bg-white/20 rounded-full cursor-pointer relative group/timeline">
+                                         <div className="absolute left-0 top-0 bottom-0 w-1/3 bg-primary rounded-full group-hover/timeline:bg-primary/80 transition-colors"></div>
+                                         <div className="absolute left-1/3 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full scale-0 group-hover/timeline:scale-100 transition-transform shadow-md"></div>
+                                      </div>
+                                      <div className="text-xs font-mono opacity-50">0:15</div>
+                                      <Maximize2 className="w-4 h-4 ml-2 opacity-50 hover:opacity-100 cursor-pointer transition-opacity" />
+                                   </div>
+                                </div>
+                             ) : media.type === 'audio' ? (
+                                <div className="w-full h-full flex flex-col items-center justify-center gap-8">
+                                   <AudioLines className="w-32 h-32 text-accent/40" />
+                                   <div className="w-3/4 h-2 bg-white/10 rounded-full overflow-hidden relative">
+                                      <div className="absolute inset-y-0 left-0 w-1/2 bg-gradient-to-r from-accent to-primary"></div>
+                                   </div>
+                                </div>
+                             ) : (
+                                <ImageIcon className="w-32 h-32 text-white/20" />
+                             )}
+                             <div className="absolute top-4 right-4 bg-black/60 backdrop-blur px-3 py-1 rounded text-xs">
+                                {media.fileName}
+                             </div>
+                          </div>
+                       </DialogContent>
+                    </Dialog>
+
                     <div className="space-y-3 flex-1 flex flex-col">
                       <div className="flex justify-between items-start">
                         <div className="space-y-1">
                           <div className="flex items-center text-sm font-medium">
-                            <Clock className="w-4 h-4 mr-2 text-muted-foreground shrink-0" />
                             {media.date}
                           </div>
-                          <div className="flex items-center text-xs text-primary/80">
-                            <MessageSquare className="w-3 h-3 mr-2 shrink-0" />
-                            Chat: {media.chatSource}
+                          <div className="flex items-center text-xs text-primary/80 line-clamp-1" title={media.chatSource}>
+                            <Users className="w-3 h-3 mr-1 shrink-0" />
+                            {media.chatSource}
                           </div>
                         </div>
                         <Button 
                           size="icon" 
                           variant="ghost" 
                           className="h-8 w-8 rounded-full bg-white/5 hover:bg-primary/20 hover:text-primary transition-colors shrink-0"
-                          onClick={() => handleDownload(media.fileName)}
+                          onClick={() => handleDownload(media)}
+                          title="Download File"
                         >
-                          <ArrowRight className="w-4 h-4 rotate-45" />
+                          <Download className="w-4 h-4" />
                         </Button>
                       </div>
                       
-                      <div className="flex items-center text-xs text-muted-foreground bg-white/5 p-2 rounded-lg">
-                        <span className="truncate flex-1" title={media.fileName}>{media.fileName}</span>
+                      <div className="flex flex-col gap-2">
+                         <div className="text-xs text-muted-foreground bg-white/5 p-2 rounded-lg truncate w-full" title={media.fileName}>
+                           {media.fileName}
+                         </div>
+                         
+                         {media.type === 'audio' && !media.transcript && (
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="w-full h-8 text-xs border-white/10 hover:bg-white/10"
+                              onClick={() => handleTranscribe(media.id)}
+                              disabled={transcribingIds.has(media.id)}
+                            >
+                               {transcribingIds.has(media.id) ? "Transcribing (Local AI)..." : "Transcribe Voice Note"}
+                            </Button>
+                         )}
                       </div>
                       
-                      {media.transcript && (
-                         <div className="mt-auto text-xs bg-black/20 p-2 rounded-lg text-white/70 italic line-clamp-2" title={media.transcript}>
-                            "{media.transcript}"
-                         </div>
-                      )}
+                      <div className="mt-auto space-y-2 pt-2">
+                         {media.category && (
+                            <div className="flex flex-wrap gap-1">
+                               {media.category.split(', ').map((c: string) => (
+                                  <span key={c} className="text-[10px] uppercase bg-primary/10 text-primary px-2 py-0.5 rounded">
+                                     {c}
+                                  </span>
+                               ))}
+                            </div>
+                         )}
+                         {media.transcript && (
+                            <div className="text-xs bg-black/30 p-2 rounded border border-white/5 text-white/80 italic line-clamp-3" title={media.transcript}>
+                               "{media.transcript}"
+                            </div>
+                         )}
+                      </div>
                     </div>
                   </motion.div>
                 ))}
