@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import JSZip from "jszip";
 import SparkMD5 from "spark-md5";
+import audioBufferToWav from "audiobuffer-to-wav";
 
 // Define a simple web worker for the transcription and classification tasks
 // to run them off the main thread if needed, though for a mockup we'll 
@@ -381,7 +382,7 @@ export default function Home({ onUpload }: { onUpload: (parsedData: any) => void
           let type = fileName.endsWith('.mp4') ? 'video' : 'image';
           
           // Audio Detection (MP4 without video track - heuristic for mockup)
-          if (path.toLowerCase().includes('audio') || path.toLowerCase().includes('voice_note') || fileName.startsWith('audio_')) {
+          if (path.toLowerCase().includes('audio') || path.toLowerCase().includes('voice_note') || fileName.startsWith('audio_') || fileName.includes('audio')) {
              type = 'audio';
           }
 
@@ -395,13 +396,38 @@ export default function Home({ onUpload }: { onUpload: (parsedData: any) => void
           }
 
           // Read file data
-          const fileData = await contents.files[path].async('uint8array');
+          let fileData = await contents.files[path].async('uint8array');
           
           // Compute MD5 hash of the file contents to deduplicate identical files with different names
           const hash = SparkMD5.ArrayBuffer.hash(fileData);
           
-          const mimeType = type === 'video' ? 'video/mp4' : type === 'audio' ? 'audio/mp4' : 'image/jpeg';
-          const blob = new Blob([fileData], { type: mimeType });
+          if (type === 'video') {
+             // For videos, try to determine if it's actually audio-only by checking the first few KB
+             // MP4 files without video tracks often have very specific atomic structures
+             // A true robust check requires a full MP4 parser, but we can do a heuristic check
+             // by seeing if it was saved in a directory that implies audio, or if the user's
+             // Snapchat data structure flagged it as such. Since we can't reliably do an async
+             // video element check during extraction without freezing the UI, we'll rely on the 
+             // initial heuristic.
+             
+             // To ensure audio files play, we'll try to convert them if they were flagged as audio
+          }
+          
+          let fileBlobData = fileData;
+          if (type === 'audio') {
+              try {
+                  // Try to convert mp4 audio track to wav
+                  const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+                  const audioBuffer = await audioCtx.decodeAudioData(fileData.buffer.slice(0));
+                  const wavData = audioBufferToWav(audioBuffer);
+                  fileBlobData = new Uint8Array(wavData);
+              } catch (e) {
+                  console.error("Failed to convert audio", e);
+              }
+          }
+          
+          const mimeType = type === 'video' ? 'video/mp4' : type === 'audio' ? 'audio/wav' : 'image/jpeg';
+          const blob = new Blob([fileBlobData], { type: mimeType });
           const url = URL.createObjectURL(blob);
           const baseName = fileName.split('.')[0].replace(/(_\d+x\d+)/, '');
           

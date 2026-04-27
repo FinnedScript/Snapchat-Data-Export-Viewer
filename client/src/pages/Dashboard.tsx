@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { 
   Activity, 
@@ -10,6 +10,9 @@ import {
   Flame, 
   ChevronRight,
   Play,
+  Pause,
+  Volume2,
+  VolumeX,
   MapPin,
   ArrowRight,
   User,
@@ -59,6 +62,191 @@ const CustomTooltip = ({ active, payload }: any) => {
     );
   }
   return null;
+};
+
+const CustomVideoPlayer = ({ src, type }: { src: string, type: 'video' | 'audio' }) => {
+  const videoRef = useRef<HTMLVideoElement | HTMLAudioElement>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [isMuted, setIsMuted] = useState(false);
+  const [showControls, setShowControls] = useState(true);
+  const controlsTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
+
+  const togglePlay = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    if (videoRef.current) {
+      if (isPlaying) {
+        videoRef.current.pause();
+      } else {
+        videoRef.current.play();
+      }
+      setIsPlaying(!isPlaying);
+    }
+  };
+
+  const handleTimeUpdate = () => {
+    if (videoRef.current) {
+      const current = videoRef.current.currentTime;
+      const total = videoRef.current.duration;
+      setCurrentTime(current);
+      setDuration(total);
+      setProgress((current / total) * 100);
+    }
+  };
+
+  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+    e.stopPropagation();
+    const seekTime = (parseFloat(e.target.value) / 100) * duration;
+    if (videoRef.current) {
+      videoRef.current.currentTime = seekTime;
+      setProgress(parseFloat(e.target.value));
+    }
+  };
+
+  const toggleMute = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (videoRef.current) {
+      videoRef.current.muted = !isMuted;
+      setIsMuted(!isMuted);
+    }
+  };
+
+  const formatVideoTime = (time: number) => {
+    if (isNaN(time)) return "0:00";
+    const minutes = Math.floor(time / 60);
+    const seconds = Math.floor(time % 60);
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  };
+
+  const handleMouseMove = () => {
+    setShowControls(true);
+    if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+    if (isPlaying) {
+      controlsTimeoutRef.current = setTimeout(() => setShowControls(false), 2000);
+    }
+  };
+
+  const handleMouseLeave = () => {
+    if (isPlaying) {
+      setShowControls(false);
+    }
+  };
+
+  return (
+    <div 
+      className="relative w-full h-full flex flex-col items-center justify-center group/player bg-black overflow-hidden"
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+      onClick={togglePlay}
+    >
+      {type === 'video' ? (
+        <video 
+          ref={videoRef as React.RefObject<HTMLVideoElement>} 
+          src={src} 
+          className="w-full h-full object-contain"
+          onTimeUpdate={handleTimeUpdate}
+          onEnded={() => setIsPlaying(false)}
+          onLoadedMetadata={handleTimeUpdate}
+          autoPlay
+          playsInline
+        />
+      ) : (
+        <div className="w-full h-full flex flex-col items-center justify-center bg-black/80 relative">
+          <audio 
+            ref={videoRef as React.RefObject<HTMLAudioElement>} 
+            src={src} 
+            onTimeUpdate={handleTimeUpdate}
+            onEnded={() => setIsPlaying(false)}
+            onLoadedMetadata={handleTimeUpdate}
+            autoPlay
+          />
+          <AudioLines className="w-32 h-32 text-accent/40 mb-8" />
+          
+          {/* Audio Visualizer Mock */}
+          <div className="flex items-center gap-1 h-16 w-3/4 max-w-md">
+            {Array.from({ length: 40 }).map((_, i) => (
+               <motion.div 
+                 key={i}
+                 className="flex-1 bg-accent/60 rounded-full origin-bottom"
+                 initial={{ height: "4px" }}
+                 animate={{ 
+                    height: isPlaying ? `${Math.max(4, Math.random() * 100)}%` : "4px",
+                    opacity: (i / 40) < (progress / 100) ? 1 : 0.3
+                 }}
+                 transition={{ duration: 0.1, repeat: isPlaying ? Infinity : 0, repeatType: "reverse" }}
+               />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Playback Controls Overlay */}
+      <AnimatePresence>
+        {showControls && (
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className="absolute bottom-0 left-0 right-0 p-4 md:p-6 bg-gradient-to-t from-black/90 via-black/60 to-transparent flex flex-col gap-4 z-50"
+            onClick={(e) => e.stopPropagation()}
+          >
+             <div className="flex items-center gap-4 w-full">
+                <span className="text-xs font-medium text-white/80 tabular-nums w-10 text-right">
+                   {formatVideoTime(currentTime)}
+                </span>
+                
+                <div className="flex-1 relative flex items-center group/slider">
+                  <input 
+                    type="range" 
+                    min="0" 
+                    max="100" 
+                    value={progress}
+                    onChange={handleSeek}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
+                  />
+                  <div className="w-full h-1.5 bg-white/20 rounded-full overflow-hidden">
+                     <div 
+                        className="h-full bg-primary rounded-full transition-all duration-100"
+                        style={{ width: `${progress}%` }}
+                     />
+                  </div>
+                  <div 
+                     className="absolute h-3 w-3 bg-white rounded-full shadow z-10 pointer-events-none opacity-0 group-hover/slider:opacity-100 transition-opacity"
+                     style={{ left: `calc(${progress}% - 6px)` }}
+                  />
+                </div>
+                
+                <span className="text-xs font-medium text-white/80 tabular-nums w-10">
+                   {formatVideoTime(duration)}
+                </span>
+             </div>
+             
+             <div className="flex items-center justify-center relative w-full">
+                <Button 
+                   variant="ghost" 
+                   size="icon" 
+                   className="absolute left-0 text-white/80 hover:text-white hover:bg-white/10 h-8 w-8 rounded-full"
+                   onClick={toggleMute}
+                >
+                   {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+                </Button>
+                
+                <Button 
+                   variant="ghost" 
+                   size="icon" 
+                   className="text-white hover:text-primary hover:bg-white/10 h-12 w-12 rounded-full border border-white/20 bg-black/40 backdrop-blur"
+                   onClick={togglePlay}
+                >
+                   {isPlaying ? <Pause className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current ml-1" />}
+                </Button>
+             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
 };
 
 export default function Dashboard({ parsedData }: { parsedData?: any }) {
@@ -178,23 +366,49 @@ export default function Dashboard({ parsedData }: { parsedData?: any }) {
               }`}>
                 {msg.type === 'media' ? (
                   <div className="space-y-3">
-                    <div className="aspect-square w-48 bg-black/40 rounded-lg flex items-center justify-center border border-white/10 relative overflow-hidden">
-                      {/* Show actual image/video preview if we have a blob URL */}
-                      {msg.url ? (
-                         msg.mediaType === 'video' ? (
-                            <div className="absolute inset-0 flex items-center justify-center bg-black/50 overflow-hidden">
-                               <video src={msg.url} className="absolute inset-0 w-full h-full object-cover opacity-50" />
-                               <Play className="w-8 h-8 text-white z-10" />
+                    <Dialog>
+                       <DialogTrigger asChild>
+                          <div className="aspect-square w-48 bg-black/40 rounded-lg flex items-center justify-center border border-white/10 relative overflow-hidden cursor-pointer group/preview">
+                            {/* Show actual image/video preview if we have a blob URL */}
+                            {msg.url ? (
+                               msg.mediaType === 'video' ? (
+                                  <div className="absolute inset-0 flex items-center justify-center bg-black/50 overflow-hidden">
+                                     <video src={msg.url} className="absolute inset-0 w-full h-full object-cover opacity-60 group-hover/preview:opacity-100 transition-opacity" muted loop onMouseEnter={(e) => (e.target as HTMLVideoElement).play()} onMouseLeave={(e) => { (e.target as HTMLVideoElement).pause(); (e.target as HTMLVideoElement).currentTime = 0; }} />
+                                     <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 z-10 pointer-events-none drop-shadow-md">
+                                        <Play className="w-8 h-8 text-white/80 group-hover/preview:text-white transition-colors drop-shadow-lg" />
+                                        <span className="text-[10px] font-bold text-white uppercase tracking-widest drop-shadow-md">VIDEO</span>
+                                     </div>
+                                  </div>
+                               ) : msg.mediaType === 'audio' ? (
+                                   <div className="flex flex-col items-center gap-2 relative z-10">
+                                      <AudioLines className="w-8 h-8 text-accent/80 group-hover/preview:text-accent transition-colors" />
+                                      <span className="text-[10px] font-bold uppercase tracking-widest text-accent drop-shadow-md">AUDIO</span>
+                                   </div>
+                               ) : (
+                                  <img src={msg.url} alt="Media" className="absolute inset-0 w-full h-full object-cover opacity-80 group-hover/preview:opacity-100 transition-opacity" />
+                               )
+                            ) : (
+                              <ImageIcon className="w-8 h-8 text-white/20" />
+                            )}
+                            <div className="absolute inset-0 bg-black/0 group-hover/preview:bg-black/20 transition-colors flex items-center justify-center z-20 pointer-events-none">
+                               <Maximize2 className="w-6 h-6 text-white opacity-0 group-hover/preview:opacity-100 transition-opacity drop-shadow-lg" />
                             </div>
-                         ) : msg.mediaType === 'audio' ? (
-                             <AudioLines className="w-8 h-8 text-accent/50" />
-                         ) : (
-                            <img src={msg.url} alt="Media" className="absolute inset-0 w-full h-full object-cover" />
-                         )
-                      ) : (
-                        <ImageIcon className="w-8 h-8 text-white/20" />
-                      )}
-                    </div>
+                          </div>
+                       </DialogTrigger>
+                       {msg.url && (
+                          <DialogContent className="max-w-4xl bg-black/90 border-white/10 p-0 overflow-hidden">
+                             <div className="w-full aspect-video flex items-center justify-center bg-black relative">
+                                {msg.mediaType === 'video' ? (
+                                   <CustomVideoPlayer src={msg.url} type="video" />
+                                ) : msg.mediaType === 'audio' ? (
+                                   <CustomVideoPlayer src={msg.url} type="audio" />
+                                ) : (
+                                   <img src={msg.url} alt="Media" className="max-w-full max-h-full object-contain" />
+                                )}
+                             </div>
+                          </DialogContent>
+                       )}
+                    </Dialog>
                     {!msg.url && msg.content && <p className="text-xs opacity-60 break-words">Media ID: {msg.content.substring(0, 12)}...</p>}
                   </div>
                 ) : (
@@ -666,38 +880,36 @@ export default function Dashboard({ parsedData }: { parsedData?: any }) {
                        <DialogTrigger asChild>
                           <div className="aspect-video rounded-xl bg-black/60 mb-4 flex items-center justify-center relative overflow-hidden shrink-0 cursor-pointer group/preview">
                             {media.type === 'video' ? (
-                              <div className="flex flex-col items-center gap-2">
-                                <Play className="w-10 h-10 text-white/50 group-hover/preview:text-white transition-colors" />
-                                <span className="text-[10px] uppercase tracking-widest opacity-40">VIDEO</span>
-                              </div>
+                              <>
+                                <video src={media.url} className="absolute inset-0 w-full h-full object-cover opacity-60 group-hover/preview:opacity-100 transition-opacity" muted loop onMouseEnter={(e) => (e.target as HTMLVideoElement).play()} onMouseLeave={(e) => { (e.target as HTMLVideoElement).pause(); (e.target as HTMLVideoElement).currentTime = 0; }} />
+                                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 z-10 pointer-events-none drop-shadow-md">
+                                  <Play className="w-10 h-10 text-white/80 group-hover/preview:text-white transition-colors drop-shadow-lg" />
+                                  <span className="text-[10px] font-bold text-white uppercase tracking-widest drop-shadow-md">VIDEO</span>
+                                </div>
+                              </>
                             ) : media.type === 'audio' ? (
-                              <div className="flex flex-col items-center gap-2">
-                                <AudioLines className="w-10 h-10 text-accent/50 group-hover/preview:text-accent transition-colors" />
-                                <span className="text-[10px] uppercase tracking-widest text-accent/70">AUDIO</span>
+                              <div className="flex flex-col items-center gap-2 relative z-10">
+                                <AudioLines className="w-10 h-10 text-accent/80 group-hover/preview:text-accent transition-colors" />
+                                <span className="text-[10px] font-bold uppercase tracking-widest text-accent drop-shadow-md">AUDIO</span>
                               </div>
                             ) : (
-                              <ImageIcon className="w-10 h-10 text-white/50 group-hover/preview:text-white transition-colors" />
+                              <img src={media.url} className="absolute inset-0 w-full h-full object-cover opacity-80 group-hover/preview:opacity-100 transition-opacity" alt="Preview" />
                             )}
-                            <div className="absolute inset-0 bg-black/0 group-hover/preview:bg-black/20 transition-colors flex items-center justify-center">
-                               <Maximize2 className="w-6 h-6 text-white opacity-0 group-hover/preview:opacity-100 transition-opacity" />
+                            <div className="absolute inset-0 bg-black/0 group-hover/preview:bg-black/20 transition-colors flex items-center justify-center z-20 pointer-events-none">
+                               <Maximize2 className="w-6 h-6 text-white opacity-0 group-hover/preview:opacity-100 transition-opacity drop-shadow-lg" />
                             </div>
                           </div>
                        </DialogTrigger>
                        <DialogContent className="max-w-4xl bg-black/90 border-white/10 p-0 overflow-hidden">
                           <div className="w-full aspect-video flex items-center justify-center bg-black relative">
                              {media.type === 'video' ? (
-                                <div className="w-full h-full flex flex-col items-center justify-center">
-                                   <video src={media.url} controls autoPlay className="max-w-full max-h-full object-contain" />
-                                </div>
+                                <CustomVideoPlayer src={media.url} type="video" />
                              ) : media.type === 'audio' ? (
-                                <div className="w-full h-full flex flex-col items-center justify-center gap-8 bg-black/50">
-                                   <AudioLines className="w-32 h-32 text-accent/40" />
-                                   <audio src={media.url} controls autoPlay className="w-3/4" />
-                                </div>
+                                <CustomVideoPlayer src={media.url} type="audio" />
                              ) : (
                                 <img src={media.url} alt="Media" className="max-w-full max-h-full object-contain" />
                              )}
-                             <div className="absolute top-4 right-4 bg-black/60 backdrop-blur px-3 py-1 rounded text-xs text-white z-50 max-w-[80%] flex flex-col gap-1 items-end">
+                             <div className="absolute top-4 right-4 bg-black/60 backdrop-blur px-3 py-1 rounded text-xs text-white z-50 max-w-[80%] flex flex-col gap-1 items-end pointer-events-none">
                                 {media.allFileNames ? media.allFileNames.map((name: string) => (
                                     <span key={name} className="truncate w-full text-right">{name}</span>
                                 )) : media.fileName}
