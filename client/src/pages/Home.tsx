@@ -434,12 +434,49 @@ export default function Home({ onUpload }: { onUpload: (parsedData: any) => void
       // Now link the deduplicated media back to chats based on their base IDs
       const uniqueMediaList = Object.values(fileHashes);
       
+      const isMediaMatch = (msgContent: any, mediaId: string, allFileNames: string[]) => {
+         if (!msgContent) return false;
+         
+         const contentStr = Array.isArray(msgContent) ? msgContent.join(',') : String(msgContent);
+         const ids = contentStr.split(',').map((s: string) => s.trim()).filter(Boolean);
+         
+         // Extract the core alphanumeric identifier, ignoring common Snapchat prefixes/suffixes 
+         // like "b~", "~", "-", "_", or the file extension.
+         const extractCoreId = (s: string) => {
+            // First split by common delimiters
+            const parts = s.split(/[~\-_.]/);
+            // Find the longest part that contains both letters and numbers, as that's likely the true hash ID
+            const candidates = parts.filter(p => p.length >= 8 && /[a-zA-Z]/.test(p) && /[0-9]/.test(p));
+            if (candidates.length > 0) {
+               // Return the longest candidate
+               return candidates.reduce((a, b) => a.length > b.length ? a : b);
+            }
+            // Fallback: just return the longest string part > 5 chars
+            const fallback = parts.find(p => p.length > 5);
+            return fallback ? fallback.replace(/[^a-zA-Z0-9]/g, '') : s.replace(/[^a-zA-Z0-9]/g, '');
+         };
+         
+         const coreMediaId = extractCoreId(mediaId);
+         if (coreMediaId.length < 5) return false;
+         
+         return ids.some((id: string) => {
+            const coreMsgId = extractCoreId(id);
+            if (coreMsgId.length < 5) return false;
+            
+            return coreMsgId.includes(coreMediaId) || 
+                   coreMediaId.includes(coreMsgId) ||
+                   allFileNames.some(name => {
+                       const coreName = extractCoreId(name);
+                       return coreName.length >= 5 && (coreName.includes(coreMsgId) || coreMsgId.includes(coreName));
+                   });
+         });
+      };
+
       const getChatSourcesForMedia = (mediaId: string, allFileNames: string[]) => {
          const sources: string[] = [];
          chatHistory.forEach(msg => {
             if (msg.type === 'media') {
-                const matchFound = msg.content.includes(mediaId) || allFileNames.some(name => msg.content.includes(name.split('.')[0]));
-                if (matchFound) {
+                if (isMediaMatch(msg.content, mediaId, allFileNames)) {
                    if (!sources.includes(msg.friend)) sources.push(msg.friend);
                 }
             }
@@ -452,8 +489,7 @@ export default function Home({ onUpload }: { onUpload: (parsedData: any) => void
           // Link this blob URL to any chat messages that reference this media ID
           chatHistory.forEach(msg => {
              if (msg.type === 'media') {
-                 const matchFound = msg.content.includes(media.id) || media.allFileNames.some((name: string) => msg.content.includes(name.split('.')[0]));
-                 if (matchFound) {
+                 if (isMediaMatch(msg.content, media.id, media.allFileNames)) {
                      msg.url = media.url;
                      msg.mediaType = media.type;
                  }

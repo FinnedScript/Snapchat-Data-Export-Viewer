@@ -195,7 +195,7 @@ export default function Dashboard({ parsedData }: { parsedData?: any }) {
                         <ImageIcon className="w-8 h-8 text-white/20" />
                       )}
                     </div>
-                    <p className="text-xs opacity-60 break-words">Media ID: {msg.content.substring(0, 12)}...</p>
+                    {!msg.url && msg.content && <p className="text-xs opacity-60 break-words">Media ID: {msg.content.substring(0, 12)}...</p>}
                   </div>
                 ) : (
                   <p className="text-sm break-words whitespace-pre-wrap leading-relaxed">{msg.content}</p>
