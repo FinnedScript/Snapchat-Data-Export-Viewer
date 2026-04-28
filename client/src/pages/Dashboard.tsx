@@ -26,7 +26,8 @@ import {
   Eye,
   Maximize2,
   Copy,
-  Check
+  Check,
+  ArrowDown
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -725,6 +726,15 @@ export default function Dashboard({ parsedData }: { parsedData?: any }) {
                          <ImageIcon className="w-3 h-3 mr-1.5" />
                          {showAllMedia ? "Show Messages" : "Show All Media"}
                        </Button>
+                       <Button
+                         variant="secondary"
+                         size="sm"
+                         className="h-8 text-xs"
+                         onClick={() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })}
+                       >
+                         <ArrowDown className="w-3 h-3 mr-1.5" />
+                         Scroll to Bottom
+                       </Button>
                        <div className="relative w-full sm:w-64 mt-2 sm:mt-0">
                           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                           <Input 
@@ -817,7 +827,7 @@ export default function Dashboard({ parsedData }: { parsedData?: any }) {
                  <h3 className="text-2xl font-bold flex items-center gap-3">
                     Media
                     <div className="text-xs font-normal text-muted-foreground bg-secondary/50 px-2.5 py-1 rounded-full border border-border/50 shadow-sm flex items-center h-fit">
-                       <span className="font-semibold text-foreground mr-1">{mediaFiles.length}</span> Total Assets
+                       <span className="font-semibold text-foreground mr-1">{parsedData?.media?.length || 0}</span> Total Assets
                     </div>
                  </h3>
                  <div className="text-sm text-muted-foreground mt-1">

@@ -386,6 +386,15 @@ export default function Home({ onUpload }: { onUpload: (parsedData: any) => void
              type = 'audio';
           }
           
+          // Extract date from filename (YYYY-MM-DD)
+          let date = "Unknown Date";
+          const dateMatch = fileName.match(/^(\d{4}-\d{2}-\d{2})/);
+          if (dateMatch) {
+             const [year, month, day] = dateMatch[1].split('-');
+             const dateObj = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+             date = dateObj.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+          }
+
           // Also try to detect true audio-only MP4s via metadata if possible during processing
           let fileData = await contents.files[path].async('uint8array');
           
@@ -542,6 +551,19 @@ export default function Home({ onUpload }: { onUpload: (parsedData: any) => void
                  }
              }
           });
+          
+          // Also link to parsed data chats (which is what the Dashboard actually uses)
+          parsedData.chats.forEach((chat: any) => {
+              chat.messages.forEach((msg: any) => {
+                  if (msg.type === 'media') {
+                      if (isMediaMatch(msg.content, media.id, media.allFileNames)) {
+                          msg.url = media.url;
+                          msg.mediaType = media.type;
+                      }
+                  }
+              });
+          });
+          
           processedMedia.push(media);
       }
 
