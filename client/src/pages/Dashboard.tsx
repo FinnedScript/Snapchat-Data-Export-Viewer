@@ -169,7 +169,7 @@ const CustomVideoPlayer = ({ src, type }: { src: string, type: 'video' | 'audio'
             {Array.from({ length: 40 }).map((_, i) => (
                <motion.div 
                  key={i}
-                 className="flex-1 bg-white/60 rounded-full origin-bottom"
+                 className="flex-1 bg-yellow-400 rounded-full origin-bottom"
                  initial={{ height: "4px" }}
                  animate={{ 
                     height: isPlaying ? `${Math.max(4, Math.random() * 100)}%` : "4px",
@@ -282,29 +282,7 @@ export default function Dashboard({ parsedData }: { parsedData?: any }) {
   };
 
   const handleTranscribe = async (id: string) => {
-     setTranscribingIds(prev => new Set(prev).add(id));
-     // Simulate local Whisper transcription latency
-     await new Promise(resolve => setTimeout(resolve, 2500));
-     
-     const mediaItem = parsedData.media.find((m: any) => m.id === id);
-     if (mediaItem) {
-        mediaItem.transcript = "Hey, it's been a while! Are we still on for lunch tomorrow? I was thinking we could try that new place downtown. Let me know what time works best for you. I'm free anytime after 1.";
-        
-        // Also update any messages that reference this media
-        parsedData.chats?.forEach((chat: any) => {
-           chat.messages?.forEach((msg: any) => {
-               if (msg.type === 'media' && msg.url === mediaItem?.url) {
-                   msg.transcript = mediaItem.transcript;
-               }
-           });
-        });
-     }
-     
-     setTranscribingIds(prev => {
-        const next = new Set(prev);
-        next.delete(id);
-        return next;
-     });
+     // Transcription removed as requested
   };
 
   const formatTime = (seconds: number) => {
@@ -386,8 +364,7 @@ export default function Dashboard({ parsedData }: { parsedData?: any }) {
                                   </div>
                                ) : msg.mediaType === 'audio' ? (
                                    <div className="flex flex-col items-center gap-2 relative z-10">
-                                      <AudioLines className="w-8 h-8 text-accent/80 group-hover/preview:text-accent transition-colors" />
-                                      <span className="text-[10px] font-bold uppercase tracking-widest text-accent drop-shadow-md">AUDIO</span>
+                                      <AudioLines className="w-8 h-8 text-yellow-400/80 group-hover/preview:text-yellow-400 transition-colors" />
                                    </div>
                                ) : (
                                   <img src={msg.url} alt="Media" className="absolute inset-0 w-full h-full object-cover opacity-80 group-hover/preview:opacity-100 transition-opacity" />
@@ -906,7 +883,7 @@ export default function Dashboard({ parsedData }: { parsedData?: any }) {
                             ) : media.type === 'audio' ? (
                               <>
                                 <div className="flex flex-col items-center gap-2 relative z-10">
-                                  <AudioLines className="w-10 h-10 text-accent/80 group-hover/preview:text-accent transition-colors" />
+                                  <AudioLines className="w-10 h-10 text-yellow-400/80 group-hover/preview:text-yellow-400 transition-colors" />
                                 </div>
                                 <div className="absolute bottom-2 right-2 bg-black/60 backdrop-blur-md px-2 py-1 rounded text-[10px] font-bold text-white uppercase tracking-widest drop-shadow-md z-20">AUDIO</div>
                               </>
@@ -996,20 +973,6 @@ export default function Dashboard({ parsedData }: { parsedData?: any }) {
                            </div>
                          )}
                          
-                         {media.type === 'audio' && !media.transcript && (
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
-                              className="w-full h-8 text-xs border-white/10 hover:bg-white/10"
-                              onClick={() => handleTranscribe(media.id)}
-                              disabled={transcribingIds.has(media.id)}
-                            >
-                               {transcribingIds.has(media.id) ? "Transcribing (Local AI)..." : "Transcribe Voice Note"}
-                            </Button>
-                         )}
-                      </div>
-                      
-                      <div className="mt-auto space-y-2 pt-2">
                          {media.category && media.category !== 'audio' && media.category !== 'video' && media.category !== 'image' && (
                             <div className="flex flex-wrap gap-1">
                                {media.category.split(', ').map((c: string) => (
@@ -1017,11 +980,6 @@ export default function Dashboard({ parsedData }: { parsedData?: any }) {
                                      {c}
                                   </span>
                                ))}
-                            </div>
-                         )}
-                         {media.transcript && (
-                            <div className="text-xs bg-black/30 p-2 rounded border border-white/5 text-white/80 italic line-clamp-3" title={media.transcript}>
-                               "{media.transcript}"
                             </div>
                          )}
                       </div>
