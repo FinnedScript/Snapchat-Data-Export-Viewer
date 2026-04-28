@@ -163,14 +163,13 @@ const CustomVideoPlayer = ({ src, type }: { src: string, type: 'video' | 'audio'
             onLoadedMetadata={handleTimeUpdate}
             autoPlay
           />
-          <AudioLines className="w-32 h-32 text-accent/40 mb-8" />
           
           {/* Audio Visualizer Mock */}
-          <div className="flex items-center gap-1 h-16 w-3/4 max-w-md">
+          <div className="flex items-center gap-1 h-32 w-3/4 max-w-md absolute inset-0 m-auto">
             {Array.from({ length: 40 }).map((_, i) => (
                <motion.div 
                  key={i}
-                 className="flex-1 bg-accent/60 rounded-full origin-bottom"
+                 className="flex-1 bg-white/60 rounded-full origin-bottom"
                  initial={{ height: "4px" }}
                  animate={{ 
                     height: isPlaying ? `${Math.max(4, Math.random() * 100)}%` : "4px",
@@ -289,7 +288,16 @@ export default function Dashboard({ parsedData }: { parsedData?: any }) {
      
      const mediaItem = parsedData.media.find((m: any) => m.id === id);
      if (mediaItem) {
-        mediaItem.transcript = "Hey, yeah I'll be there in about 10 minutes. Just finishing up here.";
+        mediaItem.transcript = "Hey, it's been a while! Are we still on for lunch tomorrow? I was thinking we could try that new place downtown. Let me know what time works best for you. I'm free anytime after 1.";
+        
+        // Also update any messages that reference this media
+        parsedData.chats?.forEach((chat: any) => {
+           chat.messages?.forEach((msg: any) => {
+               if (msg.type === 'media' && msg.url === mediaItem?.url) {
+                   msg.transcript = mediaItem.transcript;
+               }
+           });
+        });
      }
      
      setTranscribingIds(prev => {
