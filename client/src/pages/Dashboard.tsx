@@ -908,7 +908,7 @@ export default function Dashboard({ parsedData }: { parsedData?: any }) {
                                 <div className="flex flex-col items-center gap-2 relative z-10">
                                   <AudioLines className="w-10 h-10 text-accent/80 group-hover/preview:text-accent transition-colors" />
                                 </div>
-                                <div className="absolute bottom-2 right-2 bg-black/60 backdrop-blur-md px-2 py-1 rounded text-[10px] font-bold text-accent uppercase tracking-widest drop-shadow-md z-20">AUDIO</div>
+                                <div className="absolute bottom-2 right-2 bg-black/60 backdrop-blur-md px-2 py-1 rounded text-[10px] font-bold text-white uppercase tracking-widest drop-shadow-md z-20">AUDIO</div>
                               </>
                             ) : (
                               <>
@@ -1010,7 +1010,7 @@ export default function Dashboard({ parsedData }: { parsedData?: any }) {
                       </div>
                       
                       <div className="mt-auto space-y-2 pt-2">
-                         {media.category && (
+                         {media.category && media.category !== 'audio' && media.category !== 'video' && media.category !== 'image' && (
                             <div className="flex flex-wrap gap-1">
                                {media.category.split(', ').map((c: string) => (
                                   <span key={c} className="text-[10px] uppercase bg-primary/10 text-primary px-2 py-0.5 rounded">
