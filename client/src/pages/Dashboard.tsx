@@ -374,10 +374,6 @@ export default function Dashboard({ parsedData }: { parsedData?: any }) {
                                msg.mediaType === 'video' ? (
                                   <div className="absolute inset-0 flex items-center justify-center bg-black/50 overflow-hidden">
                                      <video src={msg.url} className="absolute inset-0 w-full h-full object-cover opacity-60 group-hover/preview:opacity-100 transition-opacity" muted loop onMouseEnter={(e) => (e.target as HTMLVideoElement).play()} onMouseLeave={(e) => { (e.target as HTMLVideoElement).pause(); (e.target as HTMLVideoElement).currentTime = 0; }} />
-                                     <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 z-10 pointer-events-none drop-shadow-md">
-                                        <Play className="w-8 h-8 text-white/80 group-hover/preview:text-white transition-colors drop-shadow-lg" />
-                                        <span className="text-[10px] font-bold text-white uppercase tracking-widest drop-shadow-md">VIDEO</span>
-                                     </div>
                                   </div>
                                ) : msg.mediaType === 'audio' ? (
                                    <div className="flex flex-col items-center gap-2 relative z-10">
@@ -882,10 +878,6 @@ export default function Dashboard({ parsedData }: { parsedData?: any }) {
                             {media.type === 'video' ? (
                               <>
                                 <video src={media.url} className="absolute inset-0 w-full h-full object-cover opacity-60 group-hover/preview:opacity-100 transition-opacity" muted loop onMouseEnter={(e) => (e.target as HTMLVideoElement).play()} onMouseLeave={(e) => { (e.target as HTMLVideoElement).pause(); (e.target as HTMLVideoElement).currentTime = 0; }} />
-                                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 z-10 pointer-events-none drop-shadow-md">
-                                  <Play className="w-10 h-10 text-white/80 group-hover/preview:text-white transition-colors drop-shadow-lg" />
-                                  <span className="text-[10px] font-bold text-white uppercase tracking-widest drop-shadow-md">VIDEO</span>
-                                </div>
                               </>
                             ) : media.type === 'audio' ? (
                               <div className="flex flex-col items-center gap-2 relative z-10">
