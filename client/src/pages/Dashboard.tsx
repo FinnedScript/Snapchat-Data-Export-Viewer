@@ -814,7 +814,12 @@ export default function Dashboard({ parsedData }: { parsedData?: any }) {
           <div className="space-y-6">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
               <div>
-                 <h3 className="text-2xl font-bold">Media</h3>
+                 <h3 className="text-2xl font-bold flex items-center gap-3">
+                    Media
+                    <div className="text-xs font-normal text-muted-foreground bg-secondary/50 px-2.5 py-1 rounded-full border border-border/50 shadow-sm flex items-center h-fit">
+                       <span className="font-semibold text-foreground mr-1">{mediaFiles.length}</span> Total Assets
+                    </div>
+                 </h3>
                  <div className="text-sm text-muted-foreground mt-1">
                     Deduplicated & highest quality retained.
                  </div>
@@ -878,14 +883,20 @@ export default function Dashboard({ parsedData }: { parsedData?: any }) {
                             {media.type === 'video' ? (
                               <>
                                 <video src={media.url} className="absolute inset-0 w-full h-full object-cover opacity-60 group-hover/preview:opacity-100 transition-opacity" muted loop onMouseEnter={(e) => (e.target as HTMLVideoElement).play()} onMouseLeave={(e) => { (e.target as HTMLVideoElement).pause(); (e.target as HTMLVideoElement).currentTime = 0; }} />
+                                <div className="absolute bottom-2 right-2 bg-black/60 backdrop-blur-md px-2 py-1 rounded text-[10px] font-bold text-white uppercase tracking-widest drop-shadow-md z-20">VIDEO</div>
                               </>
                             ) : media.type === 'audio' ? (
-                              <div className="flex flex-col items-center gap-2 relative z-10">
-                                <AudioLines className="w-10 h-10 text-accent/80 group-hover/preview:text-accent transition-colors" />
-                                <span className="text-[10px] font-bold uppercase tracking-widest text-accent drop-shadow-md">AUDIO</span>
-                              </div>
+                              <>
+                                <div className="flex flex-col items-center gap-2 relative z-10">
+                                  <AudioLines className="w-10 h-10 text-accent/80 group-hover/preview:text-accent transition-colors" />
+                                </div>
+                                <div className="absolute bottom-2 right-2 bg-black/60 backdrop-blur-md px-2 py-1 rounded text-[10px] font-bold text-accent uppercase tracking-widest drop-shadow-md z-20">AUDIO</div>
+                              </>
                             ) : (
-                              <img src={media.url} className="absolute inset-0 w-full h-full object-cover opacity-80 group-hover/preview:opacity-100 transition-opacity" alt="Preview" />
+                              <>
+                                <img src={media.url} className="absolute inset-0 w-full h-full object-cover opacity-80 group-hover/preview:opacity-100 transition-opacity" alt="Preview" />
+                                <div className="absolute bottom-2 right-2 bg-black/60 backdrop-blur-md px-2 py-1 rounded text-[10px] font-bold text-white uppercase tracking-widest drop-shadow-md z-20">IMAGE</div>
+                              </>
                             )}
                             <div className="absolute inset-0 bg-black/0 group-hover/preview:bg-black/20 transition-colors flex items-center justify-center z-20 pointer-events-none">
                                <Maximize2 className="w-6 h-6 text-white opacity-0 group-hover/preview:opacity-100 transition-opacity drop-shadow-lg" />

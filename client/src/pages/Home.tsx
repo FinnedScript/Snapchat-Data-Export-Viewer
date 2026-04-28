@@ -385,18 +385,39 @@ export default function Home({ onUpload }: { onUpload: (parsedData: any) => void
           if (path.toLowerCase().includes('audio') || path.toLowerCase().includes('voice_note') || fileName.startsWith('audio_') || fileName.includes('audio')) {
              type = 'audio';
           }
-
-          // Extract date from filename (YYYY-MM-DD)
-          let date = "Unknown Date";
-          const dateMatch = fileName.match(/^(\d{4}-\d{2}-\d{2})/);
-          if (dateMatch) {
-             const [year, month, day] = dateMatch[1].split('-');
-             const dateObj = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-             date = dateObj.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-          }
-
-          // Read file data
+          
+          // Also try to detect true audio-only MP4s via metadata if possible during processing
           let fileData = await contents.files[path].async('uint8array');
+          
+          if (type === 'video') {
+              const tempBlob = new Blob([fileData], { type: 'video/mp4' });
+              const tempUrl = URL.createObjectURL(tempBlob);
+              
+              try {
+                  const isAudioOnly = await new Promise<boolean>((resolve) => {
+                      const video = document.createElement('video');
+                      video.preload = 'metadata';
+                      video.onloadedmetadata = () => {
+                          resolve(video.videoWidth === 0 && video.videoHeight === 0);
+                          URL.revokeObjectURL(tempUrl);
+                      };
+                      video.onerror = () => {
+                          resolve(true); 
+                          URL.revokeObjectURL(tempUrl);
+                      };
+                      
+                      // Timeout after 1s to prevent UI freeze if metadata doesn't load
+                      setTimeout(() => resolve(false), 1000);
+                      video.src = tempUrl;
+                  });
+                  
+                  if (isAudioOnly) {
+                      type = 'audio';
+                  }
+              } catch (e) {
+                  console.error("Error checking video metadata", e);
+              }
+          }
           
           // Compute MD5 hash of the file contents to deduplicate identical files with different names
           const hash = SparkMD5.ArrayBuffer.hash(fileData);
