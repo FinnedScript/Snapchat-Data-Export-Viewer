@@ -26,7 +26,7 @@ function App() {
   const [parsedData, setParsedData] = useState<any>(null);
 
   return (
-    <QueryClientProvider client={queryClient}>
+    <>
       <TooltipProvider>
         <DynamicBackground />
         <div className="relative z-10 min-h-screen">
@@ -34,7 +34,7 @@ function App() {
         </div>
         <Toaster />
       </TooltipProvider>
-    </QueryClientProvider>
+    <>
   );
 }
 
