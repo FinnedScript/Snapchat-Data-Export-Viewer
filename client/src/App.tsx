@@ -1,4 +1,4 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, Router as WouterRouter } from "wouter";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
@@ -26,7 +26,7 @@ function App() {
   const [parsedData, setParsedData] = useState<any>(null);
 
   return (
-    <>
+    <WouterRouter base="/Snapchat-Data-Export-Viewer">
       <TooltipProvider>
         <DynamicBackground />
         <div className="relative z-10 min-h-screen">
@@ -34,7 +34,7 @@ function App() {
         </div>
         <Toaster />
       </TooltipProvider>
-    </>
+    </WouterRouter>
   );
 }
 
