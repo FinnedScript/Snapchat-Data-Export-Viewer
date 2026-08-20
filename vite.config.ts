@@ -6,7 +6,7 @@ import { metaImagesPlugin } from "./vite-plugin-meta-images";
 
 export default defineConfig({
   // This is required for GitHub Pages to resolve assets correctly
-  base: "/snapchat-data-export-viewer/",
+  base: "/Snapchat-Data-Export-Viewer/",
   
   plugins: [
     react(),
