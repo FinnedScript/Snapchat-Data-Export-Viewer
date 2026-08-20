@@ -315,7 +315,8 @@ export default function Home({ onUpload }: { onUpload: (parsedData: any) => void
            date: localTime.toLocaleDateString([], {month: 'short', day: 'numeric', year: 'numeric'}),
            rawDate: localTime,
            url: msg.url,
-           mediaType: msg.mediaType
+                          mediaType: msg.mediaType,
+                          mediaItems: []
          });
       });
 
@@ -494,7 +495,9 @@ export default function Home({ onUpload }: { onUpload: (parsedData: any) => void
          if (!msgContent) return false;
          
          const contentStr = Array.isArray(msgContent) ? msgContent.join(',') : String(msgContent);
-         const ids = contentStr.split(',').map((s: string) => s.trim()).filter(Boolean);
+          // Snapchat exports multiple media IDs separated by pipes. Commas are
+          // also accepted for older/synthetic exports.
+          const ids = contentStr.split(/[|,]/).map((s: string) => s.trim()).filter(Boolean);
          
          // Extract the core alphanumeric identifier, ignoring common Snapchat prefixes/suffixes 
          // like "b~", "~", "-", "_", or the file extension.
@@ -546,8 +549,20 @@ export default function Home({ onUpload }: { onUpload: (parsedData: any) => void
           chatHistory.forEach(msg => {
              if (msg.type === 'media') {
                  if (isMediaMatch(msg.content, media.id, media.allFileNames)) {
-                     msg.url = media.url;
-                     msg.mediaType = media.type;
+                           if (!msg.mediaItems) msg.mediaItems = [];
+                           if (!msg.mediaItems.some((item: any) => item.id === media.id)) {
+                               msg.mediaItems.push({
+                                   id: media.id,
+                                   url: media.url,
+                                   mediaType: media.type
+                               });
+                           }
+                           // Keep the legacy fields populated for any other
+                           // consumers that still expect a single media item.
+                           if (!msg.url) {
+                               msg.url = media.url;
+                               msg.mediaType = media.type;
+                           }
                  }
              }
           });
@@ -557,8 +572,20 @@ export default function Home({ onUpload }: { onUpload: (parsedData: any) => void
               chat.messages.forEach((msg: any) => {
                   if (msg.type === 'media') {
                       if (isMediaMatch(msg.content, media.id, media.allFileNames)) {
-                          msg.url = media.url;
-                          msg.mediaType = media.type;
+                          if (!msg.mediaItems) msg.mediaItems = [];
+                          if (!msg.mediaItems.some((item: any) => item.id === media.id)) {
+                              msg.mediaItems.push({
+                                  id: media.id,
+                                  url: media.url,
+                                  mediaType: media.type
+                              });
+                          }
+                          // Preserve the legacy fields for callers that
+                          // still read a single media URL.
+                          if (!msg.url) {
+                              msg.url = media.url;
+                              msg.mediaType = media.type;
+                          }
                       }
                   }
               });

@@ -351,48 +351,62 @@ export default function Dashboard({ parsedData }: { parsedData?: any }) {
               <div className={`max-w-[80%] rounded-2xl p-4 ${
                 isMe ? 'bg-primary/20 text-white' : 'bg-white/10'
               }`}>
-                {msg.type === 'media' ? (
-                  <div className="space-y-3">
-                    <Dialog>
-                       <DialogTrigger asChild>
-                          <div className="aspect-square w-48 bg-black/40 rounded-lg flex items-center justify-center border border-white/10 relative overflow-hidden cursor-pointer group/preview">
-                            {/* Show actual image/video preview if we have a blob URL */}
-                            {msg.url ? (
-                               msg.mediaType === 'video' ? (
-                                  <div className="absolute inset-0 flex items-center justify-center bg-black/50 overflow-hidden">
-                                     <video src={msg.url} className="absolute inset-0 w-full h-full object-cover opacity-60 group-hover/preview:opacity-100 transition-opacity" muted loop onMouseEnter={(e) => (e.target as HTMLVideoElement).play()} onMouseLeave={(e) => { (e.target as HTMLVideoElement).pause(); (e.target as HTMLVideoElement).currentTime = 0; }} />
-                                  </div>
-                               ) : msg.mediaType === 'audio' ? (
-                                   <div className="flex flex-col items-center gap-2 relative z-10">
-                                      <AudioLines className="w-8 h-8 text-yellow-400/80 group-hover/preview:text-yellow-400 transition-colors" />
+                 {msg.type === 'media' ? (
+                   <div className="space-y-3">
+                     {(() => {
+                       const mediaItems = msg.mediaItems?.length
+                         ? msg.mediaItems
+                         : msg.url
+                           ? [{ id: msg.id, url: msg.url, mediaType: msg.mediaType }]
+                           : [];
+
+                       return mediaItems.length > 0 ? (
+                         <div className="flex flex-wrap gap-3">
+                           {mediaItems.map((item: any, mediaIndex: number) => (
+                             <Dialog key={item.id || `${msg.id}-${mediaIndex}`}>
+                               <DialogTrigger asChild>
+                                 <div className="aspect-square w-48 bg-black/40 rounded-lg flex items-center justify-center border border-white/10 relative overflow-hidden cursor-pointer group/preview">
+                                   {item.url ? (
+                                     item.mediaType === 'video' ? (
+                                       <div className="absolute inset-0 flex items-center justify-center bg-black/50 overflow-hidden">
+                                         <video src={item.url} className="absolute inset-0 w-full h-full object-cover opacity-60 group-hover/preview:opacity-100 transition-opacity" muted loop onMouseEnter={(e) => (e.target as HTMLVideoElement).play()} onMouseLeave={(e) => { (e.target as HTMLVideoElement).pause(); (e.target as HTMLVideoElement).currentTime = 0; }} />
+                                       </div>
+                                     ) : item.mediaType === 'audio' ? (
+                                       <div className="flex flex-col items-center gap-2 relative z-10">
+                                         <AudioLines className="w-8 h-8 text-yellow-400/80 group-hover/preview:text-yellow-400 transition-colors" />
+                                       </div>
+                                     ) : (
+                                       <img src={item.url} alt="Media" className="absolute inset-0 w-full h-full object-cover opacity-80 group-hover/preview:opacity-100 transition-opacity" />
+                                     )
+                                   ) : (
+                                     <ImageIcon className="w-8 h-8 text-white/20" />
+                                   )}
+                                   <div className="absolute inset-0 bg-black/0 group-hover/preview:bg-black/20 transition-colors flex items-center justify-center z-20 pointer-events-none">
+                                     <Maximize2 className="w-6 h-6 text-white opacity-0 group-hover/preview:opacity-100 transition-opacity drop-shadow-lg" />
                                    </div>
-                               ) : (
-                                  <img src={msg.url} alt="Media" className="absolute inset-0 w-full h-full object-cover opacity-80 group-hover/preview:opacity-100 transition-opacity" />
-                               )
-                            ) : (
-                              <ImageIcon className="w-8 h-8 text-white/20" />
-                            )}
-                            <div className="absolute inset-0 bg-black/0 group-hover/preview:bg-black/20 transition-colors flex items-center justify-center z-20 pointer-events-none">
-                               <Maximize2 className="w-6 h-6 text-white opacity-0 group-hover/preview:opacity-100 transition-opacity drop-shadow-lg" />
-                            </div>
-                          </div>
-                       </DialogTrigger>
-                       {msg.url && (
-                          <DialogContent className="max-w-4xl bg-black/90 border-white/10 p-0 overflow-hidden">
-                             <div className="w-full aspect-video flex items-center justify-center bg-black relative">
-                                {msg.mediaType === 'video' ? (
-                                   <CustomVideoPlayer src={msg.url} type="video" />
-                                ) : msg.mediaType === 'audio' ? (
-                                   <CustomVideoPlayer src={msg.url} type="audio" />
-                                ) : (
-                                   <img src={msg.url} alt="Media" className="max-w-full max-h-full object-contain" />
-                                )}
-                             </div>
-                          </DialogContent>
-                       )}
-                    </Dialog>
-                    {!msg.url && msg.content && <p className="text-xs opacity-60 break-words">Media ID: {msg.content.substring(0, 12)}...</p>}
-                  </div>
+                                 </div>
+                               </DialogTrigger>
+                               {item.url && (
+                                 <DialogContent className="max-w-4xl bg-black/90 border-white/10 p-0 overflow-hidden">
+                                   <div className="w-full aspect-video flex items-center justify-center bg-black relative">
+                                     {item.mediaType === 'video' ? (
+                                       <CustomVideoPlayer src={item.url} type="video" />
+                                     ) : item.mediaType === 'audio' ? (
+                                       <CustomVideoPlayer src={item.url} type="audio" />
+                                     ) : (
+                                       <img src={item.url} alt="Media" className="max-w-full max-h-full object-contain" />
+                                     )}
+                                   </div>
+                                 </DialogContent>
+                               )}
+                             </Dialog>
+                           ))}
+                         </div>
+                       ) : (
+                         msg.content && <p className="text-xs opacity-60 break-words">Media ID: {msg.content}</p>
+                       );
+                     })()}
+                   </div>
                 ) : (
                   <p className="text-sm break-words whitespace-pre-wrap leading-relaxed">{msg.content}</p>
                 )}
