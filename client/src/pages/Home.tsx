@@ -217,7 +217,10 @@ export default function Home({ onUpload }: { onUpload: (parsedData: any) => void
                     let content = msg["Content"] || "";
                     let includeMessage = true;
                     
-                    if (msg["Media Type"] === "MEDIA") {
+                    // Saved voice notes use NOTE instead of MEDIA in
+                    // chat_history.json. They still reference their asset
+                    // through Media IDs and should render as chat media.
+                    if (msg["Media Type"] === "MEDIA" || msg["Media Type"] === "NOTE") {
                        type = "media";
                        if (!msg["Media IDs"] || !isSaved) includeMessage = false;
                        content = msg["Media IDs"] || "";
