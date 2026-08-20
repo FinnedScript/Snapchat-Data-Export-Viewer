@@ -26,7 +26,7 @@ function App() {
   const [parsedData, setParsedData] = useState<any>(null);
 
   return (
-    <WouterRouter base="/Snapchat-Data-Export-Viewer">
+    <WouterRouter base="/snapdata">
       <TooltipProvider>
         <DynamicBackground />
         <div className="relative z-10 min-h-screen">
